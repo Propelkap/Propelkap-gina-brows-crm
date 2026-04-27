@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "migrate:agendapro": "tsx --env-file=.env.local scripts/migrate-agendapro.ts",
+    "migrate:agendapro:dry": "tsx --env-file=.env.local scripts/migrate-agendapro.ts --dry-run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -31,6 +33,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

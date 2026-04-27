@@ -216,7 +216,7 @@ create table public.citas (
 create index citas_inicio_idx on public.citas (inicio);
 create index citas_cliente_idx on public.citas (cliente_id);
 create index citas_estado_idx on public.citas (estado);
-create index citas_fecha_idx on public.citas (date(inicio));
+create index citas_fecha_idx on public.citas (((inicio at time zone 'America/Monterrey')::date));
 
 -- =========================================================================
 -- PROCEDIMIENTOS (lo que SE HIZO en una cita completada)

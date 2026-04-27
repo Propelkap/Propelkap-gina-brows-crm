@@ -18,7 +18,7 @@ select
 from public.citas c
 join public.clientes cl on cl.id = c.cliente_id
 join public.servicios s on s.id = c.servicio_id
-where date(c.inicio at time zone 'America/Monterrey') = current_date
+where ((c.inicio at time zone 'America/Monterrey')::date) = current_date
   and c.estado not in ('cancelada')
 order by c.inicio;
 
@@ -176,9 +176,9 @@ select
   (select count(*) from public.v_retoques_anuales_pendientes where urgencia in ('vencido', 'urgente')) as retoques_anuales_urgentes,
   (select count(*) from public.v_cumpleanos_proximos where proximo_cumple between current_date and current_date + interval '7 days') as cumples_7d,
   (select count(*) from public.v_cross_sell_sugerido) as cross_sell_sugeridos,
-  (select coalesce(sum(precio_mxn), 0) from public.citas where date(inicio at time zone 'America/Monterrey') = current_date and estado in ('confirmada', 'completada')) as ingreso_proyectado_hoy,
-  (select coalesce(sum(precio_mxn), 0) from public.citas where date(inicio at time zone 'America/Monterrey') >= date_trunc('month', current_date) and estado = 'completada') as ingreso_mes,
-  (select count(*) from public.citas where date(inicio at time zone 'America/Monterrey') >= date_trunc('month', current_date) and estado = 'completada') as citas_completadas_mes;
+  (select coalesce(sum(precio_mxn), 0) from public.citas where ((inicio at time zone 'America/Monterrey')::date) = current_date and estado in ('confirmada', 'completada')) as ingreso_proyectado_hoy,
+  (select coalesce(sum(precio_mxn), 0) from public.citas where ((inicio at time zone 'America/Monterrey')::date) >= date_trunc('month', current_date) and estado = 'completada') as ingreso_mes,
+  (select count(*) from public.citas where ((inicio at time zone 'America/Monterrey')::date) >= date_trunc('month', current_date) and estado = 'completada') as citas_completadas_mes;
 
 -- =========================================================================
 -- SEED — catálogo de servicios de Gina (lo que ella declaró en el intake)

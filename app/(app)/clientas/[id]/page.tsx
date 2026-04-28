@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Phone, Mail, Calendar, Cake, MapPin, AlertTriangle, Heart, Sparkles, MessageCircle } from "lucide-react";
+import { ChevronLeft, Phone, Mail, Calendar, Cake, AlertTriangle, Heart, MessageCircle } from "lucide-react";
+import FotosClienta from "../../_components/FotosClienta";
+import CitaActions from "../../_components/CitaActions";
 
 export const dynamic = "force-dynamic";
 
@@ -36,16 +38,18 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const supabase = await createClient();
 
-  const [clienteRes, citasRes, procRes] = await Promise.all([
+  const [clienteRes, citasRes, procRes, fotosRes] = await Promise.all([
     supabase.from("clientes").select("*").eq("id", id).single(),
     supabase.from("citas").select("*, servicio:servicios(nombre, categoria)").eq("cliente_id", id).order("inicio", { ascending: false }),
     supabase.from("procedimientos").select("*, servicio:servicios(nombre)").eq("cliente_id", id).order("fecha_realizacion", { ascending: false }),
+    supabase.from("fotos").select("*").eq("cliente_id", id).order("created_at", { ascending: false }),
   ]);
 
   if (clienteRes.error || !clienteRes.data) notFound();
   const cliente = clienteRes.data;
   const citas = citasRes.data ?? [];
   const procedimientos = procRes.data ?? [];
+  const fotos = fotosRes.data ?? [];
 
   // Próximos retoques calculados
   const today = new Date().toISOString().slice(0, 10);
@@ -153,6 +157,12 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
         </section>
       )}
 
+      {/* Fotos antes/después */}
+      <section className="mb-8">
+        <h2 className="text-lg mb-3">Fotos antes/después ({fotos.length})</h2>
+        <FotosClienta clienteId={id} fotos={fotos} />
+      </section>
+
       {/* Historial de citas */}
       <section className="mb-8">
         <h2 className="text-lg mb-3">Historial de citas ({citas.length})</h2>
@@ -170,11 +180,17 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
               <tbody>
                 {citas.slice(0, 50).map((c) => {
                   const est = ESTADO_LABELS[c.estado] ?? { label: c.estado, color: "" };
+                  const esFutura = new Date(c.inicio) > new Date();
                   return (
-                    <tr key={c.id} className="border-b border-[var(--border)] last:border-0">
+                    <tr key={c.id} className="border-b border-[var(--border)] last:border-0 align-top">
                       <td className="px-4 py-2.5 text-sm whitespace-nowrap">{fmtDateTime(c.inicio)}</td>
                       <td className="px-3 py-2.5 text-sm">{c.servicio?.nombre}</td>
-                      <td className={`px-3 py-2.5 text-sm font-medium ${est.color}`}>{est.label}</td>
+                      <td className={`px-3 py-2.5 text-sm font-medium ${est.color}`}>
+                        {est.label}
+                        {esFutura && c.estado !== "completada" && c.estado !== "cancelada" && (
+                          <CitaActions citaId={c.id} estadoActual={c.estado} />
+                        )}
+                      </td>
                       <td className="px-4 py-2.5 text-sm text-right font-mono">{fmtMxn(Number(c.precio_mxn))}</td>
                     </tr>
                   );

@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Calendar, Users, MessageCircle, BarChart3, Sparkles, Settings, LogOut, Heart, Send } from "lucide-react";
+import { Calendar, Users, MessageCircle, BarChart3, Sparkles, Settings, Heart, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import LogoutButton from "./_components/LogoutButton";
+import QuickActions from "./_components/QuickActions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -13,6 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen">
       <Sidebar email={user.email ?? ""} />
       <main className="flex-1 ml-64 px-8 py-6">{children}</main>
+      <QuickActions />
     </div>
   );
 }

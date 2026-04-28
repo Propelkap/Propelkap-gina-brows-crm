@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Calendar, Clock, MessageCircle } from "lucide-react";
+import CitaActions from "../_components/CitaActions";
 
 export const dynamic = "force-dynamic";
 
@@ -82,33 +83,36 @@ export default async function AgendaPage() {
                     const horaFin = new Date(c.fin).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
                     const wa = c.cliente?.whatsapp;
                     return (
-                      <div key={c.id} className="card flex items-center gap-4 !py-3">
-                        <div className="text-center min-w-[60px]">
-                          <p className="text-lg font-semibold">{hora}</p>
-                          <p className="text-xs text-[var(--muted-foreground)]">{horaFin}</p>
+                      <div key={c.id} className="card !py-3">
+                        <div className="flex items-start gap-4">
+                          <div className="text-center min-w-[60px]">
+                            <p className="text-lg font-semibold">{hora}</p>
+                            <p className="text-xs text-[var(--muted-foreground)]">{horaFin}</p>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <Link href={`/clientas/${c.cliente?.id}`} className="font-medium hover:underline">
+                              {c.cliente?.nombre} {c.cliente?.apellido}
+                            </Link>
+                            <p className="text-sm text-[var(--muted-foreground)]">{c.servicio?.nombre}</p>
+                            <CitaActions citaId={c.id} estadoActual={c.estado} />
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{fmtMxn(Number(c.precio_mxn))}</p>
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ESTADO_BADGES[c.estado]}`}>
+                              {ESTADO_LABELS[c.estado]}
+                            </span>
+                          </div>
+                          {wa && (
+                            <a
+                              href={`https://wa.me/${wa.replace(/[^0-9]/g, "")}?text=${encodeURIComponent("Hello, hello 🌿 ")}`}
+                              target="_blank" rel="noreferrer"
+                              className="text-[var(--primary-dark)] hover:text-[var(--foreground)]"
+                              title="WhatsApp"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </a>
+                          )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <Link href={`/clientas/${c.cliente?.id}`} className="font-medium hover:underline">
-                            {c.cliente?.nombre} {c.cliente?.apellido}
-                          </Link>
-                          <p className="text-sm text-[var(--muted-foreground)]">{c.servicio?.nombre}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold">{fmtMxn(Number(c.precio_mxn))}</p>
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ESTADO_BADGES[c.estado]}`}>
-                            {ESTADO_LABELS[c.estado]}
-                          </span>
-                        </div>
-                        {wa && (
-                          <a
-                            href={`https://wa.me/${wa.replace(/[^0-9]/g, "")}?text=${encodeURIComponent("Hello, hello 🌿 ")}`}
-                            target="_blank" rel="noreferrer"
-                            className="text-[var(--primary-dark)] hover:text-[var(--foreground)]"
-                            title="WhatsApp"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                          </a>
-                        )}
                       </div>
                     );
                   })}

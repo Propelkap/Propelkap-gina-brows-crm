@@ -138,3 +138,10 @@ input:focus, textarea:focus, select:focus {
   border-radius: 16px;
   padding: 1.25rem;
 }
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

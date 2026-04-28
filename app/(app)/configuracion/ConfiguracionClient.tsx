@@ -88,6 +88,20 @@ export default function ConfiguracionClient({ config, servicios }: { config: any
         />
       </Section>
 
+      <Section title="Integraciones">
+        <div className="card flex items-center justify-between">
+          <div>
+            <p className="font-semibold mb-1 flex items-center gap-2">
+              <span>📅</span> Google Calendar
+            </p>
+            <p className="text-sm text-[var(--muted-foreground)]">
+              Conecta tu calendario para que las citas confirmadas con Stripe se agreguen automáticamente.
+            </p>
+          </div>
+          <a href="/api/calendar/connect" className="btn-primary !text-xs">Conectar</a>
+        </div>
+      </Section>
+
       <Section title="Reglas operativas">
         <Field label="% de anticipo por defecto" value={String(data.anticipo_porcentaje_default)} onChange={(v) => setData({ ...data, anticipo_porcentaje_default: parseInt(v) || 50 })} />
         <Field label="Días para considerar 'dormida'" value={String(data.dias_dormida)} onChange={(v) => setData({ ...data, dias_dormida: parseInt(v) || 180 })} />

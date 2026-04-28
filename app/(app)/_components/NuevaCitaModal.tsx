@@ -11,7 +11,7 @@ type Servicio = { id: string; nombre: string; precio_mxn: number; duracion_min: 
 const fmtMxn = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 
-export default function NuevaCitaModal({ onClose, clientePreseleccionado }: { onClose: () => void; clientePreseleccionado?: Cliente }) {
+export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaInicial }: { onClose: () => void; clientePreseleccionado?: Cliente; fechaInicial?: Date | null }) {
   const router = useRouter();
   const sb = createClient();
 
@@ -20,8 +20,8 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado }: { on
   const [search, setSearch] = useState("");
   const [cliente, setCliente] = useState<Cliente | null>(clientePreseleccionado ?? null);
   const [servicio, setServicio] = useState<Servicio | null>(null);
-  const [fecha, setFecha] = useState("");
-  const [hora, setHora] = useState("");
+  const [fecha, setFecha] = useState(() => fechaInicial ? fechaInicial.toISOString().slice(0, 10) : "");
+  const [hora, setHora] = useState(() => fechaInicial ? fechaInicial.toISOString().slice(11, 16) : "");
   const [precio, setPrecio] = useState<string>("");
   const [anticipo, setAnticipo] = useState<string>("");
   const [notas, setNotas] = useState("");

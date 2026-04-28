@@ -188,7 +188,7 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
                       <td className={`px-3 py-2.5 text-sm font-medium ${est.color}`}>
                         {est.label}
                         {esFutura && c.estado !== "completada" && c.estado !== "cancelada" && (
-                          <CitaActions citaId={c.id} estadoActual={c.estado} />
+                          <CitaActions citaId={c.id} estadoActual={c.estado} precioMxn={Number(c.precio_mxn)} clienteWhatsapp={cliente.whatsapp} />
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-sm text-right font-mono">{fmtMxn(Number(c.precio_mxn))}</td>

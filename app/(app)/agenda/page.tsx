@@ -94,7 +94,7 @@ export default async function AgendaPage() {
                               {c.cliente?.nombre} {c.cliente?.apellido}
                             </Link>
                             <p className="text-sm text-[var(--muted-foreground)]">{c.servicio?.nombre}</p>
-                            <CitaActions citaId={c.id} estadoActual={c.estado} />
+                            <CitaActions citaId={c.id} estadoActual={c.estado} precioMxn={Number(c.precio_mxn)} clienteWhatsapp={c.cliente?.whatsapp} />
                           </div>
                           <div className="text-right">
                             <p className="font-semibold">{fmtMxn(Number(c.precio_mxn))}</p>

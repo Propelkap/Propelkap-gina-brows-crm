@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Save, Sparkles, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import FeedbackBot from "./FeedbackBot";
 
 const fmtMxn = (n: number | null) =>
   n != null
@@ -105,6 +106,10 @@ export default function ConfiguracionClient({ config, servicios }: { config: any
       <Section title="Reglas operativas">
         <Field label="% de anticipo por defecto" value={String(data.anticipo_porcentaje_default)} onChange={(v) => setData({ ...data, anticipo_porcentaje_default: parseInt(v) || 50 })} />
         <Field label="Días para considerar 'dormida'" value={String(data.dias_dormida)} onChange={(v) => setData({ ...data, dias_dormida: parseInt(v) || 180 })} />
+      </Section>
+
+      <Section title="Aprendizaje del bot">
+        <FeedbackBot />
       </Section>
 
       <Section title={`Catálogo de servicios (${servicios.length})`}>

@@ -1,4 +1,30 @@
-import Stub from "../_components/Stub";
-export default function Page() {
-  return <Stub title="Retención" description="Tabs: Dormidas (>6m) · Retoques 60d · Retoques anuales · Cumpleaños · Cross-sell sugerido. Cada lista permite mandar mensaje masivo con tu voz." eta="Día 16 (semana 3)" />;
+import { createClient } from "@/lib/supabase/server";
+import RetencionClient from "./RetencionClient";
+
+export const dynamic = "force-dynamic";
+
+type Search = { tab?: string };
+
+export default async function Page({ searchParams }: { searchParams: Promise<Search> }) {
+  const { tab = "dormidas" } = await searchParams;
+  const supabase = await createClient();
+
+  const [dormidasRes, ret60Res, retAnualRes, cumplesRes, crossRes] = await Promise.all([
+    supabase.from("v_clientas_dormidas").select("*"),
+    supabase.from("v_retoques_60d_pendientes").select("*"),
+    supabase.from("v_retoques_anuales_pendientes").select("*"),
+    supabase.from("v_cumpleanos_proximos").select("*"),
+    supabase.from("v_cross_sell_sugerido").select("*"),
+  ]);
+
+  return (
+    <RetencionClient
+      tab={tab}
+      dormidas={dormidasRes.data ?? []}
+      retoques60={ret60Res.data ?? []}
+      retoquesAnuales={retAnualRes.data ?? []}
+      cumples={cumplesRes.data ?? []}
+      crossSell={crossRes.data ?? []}
+    />
+  );
 }

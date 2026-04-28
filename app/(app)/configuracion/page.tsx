@@ -1,4 +1,13 @@
-import Stub from "../_components/Stub";
-export default function Page() {
-  return <Stub title="Configuración" description="Datos del estudio, horarios, catálogo de servicios editable, voz del bot IA, integraciones (Stripe, Google Business, Meta Ads), gestión de usuarios." eta="Día 12 (semana 2)" />;
+import { createClient } from "@/lib/supabase/server";
+import ConfiguracionClient from "./ConfiguracionClient";
+
+export const dynamic = "force-dynamic";
+
+export default async function Page() {
+  const supabase = await createClient();
+  const [confRes, servRes] = await Promise.all([
+    supabase.from("configuracion").select("*").eq("id", 1).single(),
+    supabase.from("servicios").select("*").order("orden", { ascending: true }),
+  ]);
+  return <ConfiguracionClient config={confRes.data} servicios={servRes.data ?? []} />;
 }

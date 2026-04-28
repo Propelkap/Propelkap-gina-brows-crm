@@ -173,12 +173,13 @@ function pick(row: Record<string, string>, candidates: string[]): string {
 }
 
 const CLIENTE_COLS = {
-  nombre: ["nombre", "name", "cliente", "nombre_completo", "full_name"],
+  nombre: ["nombre", "nombres", "name", "cliente", "nombre_completo", "full_name"],
+  apellido: ["apellido", "apellidos", "last_name", "lastname"],
   email: ["email", "correo", "correo_electronico", "e_mail"],
-  whatsapp: ["telefono", "celular", "phone", "movil", "whatsapp"],
+  whatsapp: ["telefono", "teléfono", "celular", "phone", "movil", "móvil", "whatsapp"],
   fecha_nacimiento: ["fecha_nacimiento", "cumpleaños", "cumpleanos", "birthday", "fecha_de_nacimiento"],
   notas: ["notas", "observaciones", "comentarios", "notes"],
-  agendapro_id: ["id", "id_cliente", "cliente_id"],
+  agendapro_id: ["agendapro_id", "id", "id_cliente", "cliente_id", "numero_de_cliente"],
 };
 
 const CITA_COLS = {
@@ -241,8 +242,20 @@ async function uploadBackup(path: string, kind: "clientes" | "citas") {
 type ClienteIn = ReturnType<typeof normalizeCliente>;
 
 function normalizeCliente(row: Record<string, string>) {
-  const fullName = pick(row, CLIENTE_COLS.nombre);
-  const { nombre, apellido } = splitNombre(fullName);
+  // Si nombre Y apellido vienen como columnas separadas, respetar.
+  // Si solo viene "nombre" como nombre completo, hacer split heurístico.
+  const apellidoSeparado = pick(row, CLIENTE_COLS.apellido);
+  const nombreRaw = pick(row, CLIENTE_COLS.nombre);
+  let nombre: string;
+  let apellido: string | null;
+  if (apellidoSeparado) {
+    nombre = nombreRaw || "(sin nombre)";
+    apellido = apellidoSeparado;
+  } else {
+    const split = splitNombre(nombreRaw);
+    nombre = split.nombre;
+    apellido = split.apellido;
+  }
   return {
     nombre,
     apellido,

@@ -12,10 +12,13 @@ type Cita = {
   fin: string;
   estado: string;
   precio_mxn: number;
+  sesion_numero?: number | null;
+  sesiones_totales?: number | null;
+  notas_internas?: string | null;
   google_event_id?: string | null;
   calendar_synced_at?: string | null;
   cliente: { id: string; nombre: string; apellido: string | null; whatsapp: string | null } | null;
-  servicio: { nombre: string } | null;
+  servicio: { id: string; nombre: string; precio_mxn?: number; duracion_min?: number } | null;
 };
 
 const HOUR_START = 9;  // 9 AM
@@ -177,7 +180,10 @@ export default function AgendaCalendar({ citas, mondayISO }: { citas: Cita[]; mo
                           style={style}
                         >
                           <div className="font-semibold truncate">{c.cliente?.nombre} {c.cliente?.apellido}</div>
-                          <div className="opacity-80 truncate">{hora} · {c.servicio?.nombre}</div>
+                          <div className="opacity-80 truncate">
+                            {hora} · {c.servicio?.nombre}
+                            {c.sesion_numero && c.sesiones_totales ? ` (${c.sesion_numero}/${c.sesiones_totales})` : ""}
+                          </div>
                         </button>
                       );
                     })}
@@ -236,10 +242,48 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [eventId, setEventId] = useState<string | null>(cita.google_event_id ?? null);
   const [syncedAt, setSyncedAt] = useState<string | null>(cita.calendar_synced_at ?? null);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    fecha: cita.inicio.slice(0, 10),
+    hora: cita.inicio.slice(11, 16),
+    precio_mxn: String(cita.precio_mxn),
+    estado: cita.estado,
+    notas_internas: cita.notas_internas ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const inicio = new Date(cita.inicio);
   const fmt = inicio.toLocaleString("es-MX", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
   const wa = cita.cliente?.whatsapp;
+
+  async function saveEdits() {
+    setSaving(true);
+    setEditError(null);
+    const inicioISO = new Date(`${editForm.fecha}T${editForm.hora}:00`).toISOString();
+    const duracionMin = cita.servicio?.duracion_min ?? 60;
+    const finISO = new Date(new Date(inicioISO).getTime() + duracionMin * 60_000).toISOString();
+    const res = await fetch(`/api/citas/${cita.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        inicio: inicioISO,
+        fin: finISO,
+        precio_mxn: parseFloat(editForm.precio_mxn || "0"),
+        estado: editForm.estado,
+        notas_internas: editForm.notas_internas || null,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const j = await res.json();
+      setEditError(j.error || "Error al guardar");
+      return;
+    }
+    setEditing(false);
+    router.refresh();
+    onClose();
+  }
 
   async function syncToCalendar() {
     setSyncing(true);
@@ -281,13 +325,61 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
             <button onClick={onClose} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-2xl leading-none">×</button>
           </div>
 
-          <div className="space-y-3 mb-6">
-            <Field label="Servicio" value={cita.servicio?.nombre ?? "—"} />
-            <Field label="Cuándo" value={fmt} />
-            <Field label="Precio" value={fmtMxn(Number(cita.precio_mxn))} />
-            <Field label="Estado" value={cita.estado} />
-            {wa && <Field label="WhatsApp" value={wa} mono />}
-          </div>
+          {!editing ? (
+            <>
+              <div className="space-y-3 mb-4">
+                <Field label="Servicio" value={`${cita.servicio?.nombre ?? "—"}${cita.sesion_numero && cita.sesiones_totales ? ` (${cita.sesion_numero}/${cita.sesiones_totales})` : ""}`} />
+                <Field label="Cuándo" value={fmt} />
+                <Field label="Precio" value={fmtMxn(Number(cita.precio_mxn))} />
+                <Field label="Estado" value={cita.estado} />
+                {cita.notas_internas && <Field label="Notas" value={cita.notas_internas} />}
+                {wa && <Field label="WhatsApp" value={wa} mono />}
+              </div>
+              <button onClick={() => setEditing(true)} className="btn-ghost w-full justify-center mb-4 !text-xs">
+                ✏️ Editar cita
+              </button>
+            </>
+          ) : (
+            <div className="space-y-3 mb-4 bg-[var(--card)] p-4 rounded-xl border border-[var(--border)]">
+              <p className="eyebrow !text-[var(--primary-dark)] mb-2">Editando cita</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] font-medium">Fecha</label>
+                  <input type="date" value={editForm.fecha} onChange={(e) => setEditForm({ ...editForm, fecha: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] font-medium">Hora</label>
+                  <input type="time" value={editForm.hora} onChange={(e) => setEditForm({ ...editForm, hora: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] font-medium">Estado</label>
+                <select value={editForm.estado} onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}>
+                  <option value="tentativa">Pendiente</option>
+                  <option value="confirmada">Confirmada</option>
+                  <option value="completada">Completada</option>
+                  <option value="no_show">No asistió</option>
+                  <option value="cancelada">Cancelada</option>
+                  <option value="reagendada">Reagendada</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] font-medium">Precio MXN</label>
+                <input type="number" value={editForm.precio_mxn} onChange={(e) => setEditForm({ ...editForm, precio_mxn: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] font-medium">Notas</label>
+                <textarea rows={2} value={editForm.notas_internas} onChange={(e) => setEditForm({ ...editForm, notas_internas: e.target.value })} />
+              </div>
+              {editError && <p className="text-xs text-[var(--destructive)]">{editError}</p>}
+              <div className="flex gap-2">
+                <button onClick={() => setEditing(false)} className="btn-ghost flex-1 justify-center !text-xs">Cancelar</button>
+                <button onClick={saveEdits} disabled={saving} className="btn-primary flex-1 justify-center !text-xs">
+                  {saving ? "Guardando…" : "Guardar cambios"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Google Calendar sync */}
           <div className="mb-4 p-3 rounded-xl bg-[var(--card)] border border-[var(--border)]">

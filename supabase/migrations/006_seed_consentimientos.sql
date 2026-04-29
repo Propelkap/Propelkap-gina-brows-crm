@@ -3,6 +3,11 @@
 -- Basado en los PDFs oficiales de Gina Brows
 -- =========================================================================
 
+-- Permitir consentimientos pendientes (sin firma aún)
+alter table public.consentimientos
+  alter column firmado_at drop not null,
+  alter column contenido_html drop not null;
+
 -- Template MICROBLADING
 insert into public.consentimiento_templates (tipo, nombre, version, estructura)
 values (

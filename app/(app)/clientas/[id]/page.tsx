@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, Phone, Mail, Calendar, Cake, AlertTriangle, Heart, MessageCircle } from "lucide-react";
 import FotosClienta from "../../_components/FotosClienta";
 import CitaActions from "../../_components/CitaActions";
+import GenerarConsentimientoBtn from "../../_components/GenerarConsentimientoBtn";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +39,12 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const supabase = await createClient();
 
-  const [clienteRes, citasRes, procRes, fotosRes] = await Promise.all([
+  const [clienteRes, citasRes, procRes, fotosRes, consentRes] = await Promise.all([
     supabase.from("clientes").select("*").eq("id", id).single(),
     supabase.from("citas").select("*, servicio:servicios(nombre, categoria)").eq("cliente_id", id).order("inicio", { ascending: false }),
     supabase.from("procedimientos").select("*, servicio:servicios(nombre)").eq("cliente_id", id).order("fecha_realizacion", { ascending: false }),
     supabase.from("fotos").select("*").eq("cliente_id", id).order("created_at", { ascending: false }),
+    supabase.from("consentimientos").select("id, tipo, firmado_at, pdf_path, created_at").eq("cliente_id", id).order("created_at", { ascending: false }),
   ]);
 
   if (clienteRes.error || !clienteRes.data) notFound();
@@ -50,6 +52,7 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
   const citas = citasRes.data ?? [];
   const procedimientos = procRes.data ?? [];
   const fotos = fotosRes.data ?? [];
+  const consentimientos = consentRes.data ?? [];
 
   // Próximos retoques calculados
   const today = new Date().toISOString().slice(0, 10);
@@ -156,6 +159,46 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
           </div>
         </section>
       )}
+
+      {/* Consentimientos digitales */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h2 className="text-lg">Consentimientos firmados ({consentimientos.filter(c => c.firmado_at).length})</h2>
+          <GenerarConsentimientoBtn clienteId={id} clienteNombre={cliente.nombre} clienteWhatsapp={cliente.whatsapp} />
+        </div>
+        {consentimientos.length === 0 ? (
+          <div className="card text-center py-8 text-sm text-[var(--muted-foreground)]">
+            Sin consentimientos aún. Genera link y mándalo por WhatsApp para que firme desde su iPad/celular.
+          </div>
+        ) : (
+          <div className="card !p-0 overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[var(--border)] text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
+                  <th className="text-left px-4 py-2.5 font-medium">Tipo</th>
+                  <th className="text-left px-3 py-2.5 font-medium">Estado</th>
+                  <th className="text-left px-4 py-2.5 font-medium">Firmado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {consentimientos.map((c: { id: string; tipo: string; firmado_at: string | null; pdf_path: string | null; created_at: string }) => (
+                  <tr key={c.id} className="border-b border-[var(--border)] last:border-0">
+                    <td className="px-4 py-2.5 text-sm">{c.tipo}</td>
+                    <td className="px-3 py-2.5 text-sm">
+                      {c.firmado_at ? (
+                        <span className="text-[var(--sage-deep)] font-medium">✓ Firmado</span>
+                      ) : (
+                        <span className="text-[var(--warning)] font-medium">⏳ Pendiente firma</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-sm text-[var(--muted-foreground)]">{c.firmado_at ? fmtDate(c.firmado_at) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       {/* Fotos antes/después */}
       <section className="mb-8">

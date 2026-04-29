@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, MessageCircle, CalendarCheck, RefreshCw, AlertCircle } from "lucide-react";
 import NuevaCitaModal from "../_components/NuevaCitaModal";
+import GenerarConsentimientoBtn from "../_components/GenerarConsentimientoBtn";
 
 type Cita = {
   id: string;
@@ -424,6 +425,14 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
           </div>
 
           <div className="space-y-2">
+            {cita.cliente && (
+              <GenerarConsentimientoBtn
+                clienteId={cita.cliente.id}
+                citaId={cita.id}
+                clienteNombre={cita.cliente.nombre}
+                clienteWhatsapp={wa}
+              />
+            )}
             <Link href={`/clientas/${cita.cliente?.id}`} className="btn-primary w-full justify-center">Abrir ficha completa</Link>
             {wa && (
               <a

@@ -85,35 +85,49 @@ Idea de Gina:
 Genera el mensaje listo para enviar.`;
 
   const client = new Anthropic({ apiKey });
+  const maxRetries = 3;
+  let lastError: Error | null = null;
 
-  try {
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    });
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await client.messages.create({
+        model: "claude-sonnet-4-5",
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      });
 
-    const text = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { type: "text"; text: string }).text)
-      .join("");
+      const text = response.content
+        .filter((b) => b.type === "text")
+        .map((b) => (b as { type: "text"; text: string }).text)
+        .join("");
 
-    // Extraer JSON (el modelo a veces lo envuelve en ```json)
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json({ error: "Respuesta sin JSON válido", raw: text }, { status: 500 });
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        return NextResponse.json({ error: "Respuesta sin JSON válido", raw: text }, { status: 500 });
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      return NextResponse.json({
+        ok: true,
+        asunto: parsed.asunto ?? null,
+        cuerpo: parsed.cuerpo ?? "",
+        tokens_in: response.usage.input_tokens,
+        tokens_out: response.usage.output_tokens,
+      });
+    } catch (e) {
+      const err = e as { status?: number; message?: string };
+      lastError = e as Error;
+      const isTransient = err.status === 429 || err.status === 503 || err.status === 529 || (err.status ?? 0) >= 500;
+      const lastAttempt = attempt === maxRetries - 1;
+      if (!isTransient || lastAttempt) break;
+      const waitMs = 1000 * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, waitMs));
     }
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    return NextResponse.json({
-      ok: true,
-      asunto: parsed.asunto ?? null,
-      cuerpo: parsed.cuerpo ?? "",
-      tokens_in: response.usage.input_tokens,
-      tokens_out: response.usage.output_tokens,
-    });
-  } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
+
+  return NextResponse.json({
+    error: "Claude está temporalmente saturado. Intenta de nuevo en 30 segundos.",
+    detail: lastError?.message,
+  }, { status: 503 });
 }

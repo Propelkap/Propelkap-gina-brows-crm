@@ -104,28 +104,51 @@ Responde SIEMPRE en español, en la voz de Gina, máximo 3 oraciones.`;
   }));
   messages.push({ role: "user", content: mensajeEntrante });
 
-  // 4. Llamar Claude
-  try {
-    const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 400,
-      system: systemPrompt,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
-    });
+  // 4. Llamar Claude con retry exponencial para errores transitorios (rate limits, 5xx)
+  const client = new Anthropic({ apiKey });
+  const maxRetries = 3;
 
-    const text = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { type: "text"; text: string }).text)
-      .join("")
-      .trim();
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await client.messages.create({
+        model: "claude-sonnet-4-5",
+        max_tokens: 400,
+        system: systemPrompt,
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      });
 
-    return {
-      respuesta: text,
-      tokens: { in: response.usage.input_tokens, out: response.usage.output_tokens },
-    };
-  } catch (e) {
-    console.error("Bot AI error:", e);
-    return null;
+      const text = response.content
+        .filter((b) => b.type === "text")
+        .map((b) => (b as { type: "text"; text: string }).text)
+        .join("")
+        .trim();
+
+      return {
+        respuesta: text,
+        tokens: { in: response.usage.input_tokens, out: response.usage.output_tokens },
+      };
+    } catch (e) {
+      const err = e as { status?: number; message?: string };
+      const isTransient = err.status === 429 || err.status === 503 || err.status === 529 || (err.status ?? 0) >= 500;
+      const lastAttempt = attempt === maxRetries - 1;
+
+      if (!isTransient || lastAttempt) {
+        console.error(`Bot AI error (attempt ${attempt + 1}/${maxRetries}):`, err.message ?? e);
+        // Fallback graceful: mensaje educado en voz Gina si no podemos generar respuesta
+        if (lastAttempt && isTransient) {
+          return {
+            respuesta: "Hello, hello 🌿 Dame un momentito y te contesto en cuanto pueda. Si es urgente, escríbeme directo y respondo personal 💜",
+          };
+        }
+        return null;
+      }
+
+      // Backoff exponencial: 1s, 2s, 4s
+      const waitMs = 1000 * Math.pow(2, attempt);
+      console.warn(`Bot AI rate-limited (attempt ${attempt + 1}/${maxRetries}), retry in ${waitMs}ms`);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
   }
+
+  return null;
 }

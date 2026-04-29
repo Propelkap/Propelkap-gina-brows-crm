@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, MessageCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, MessageCircle, CalendarCheck, RefreshCw, AlertCircle } from "lucide-react";
 import NuevaCitaModal from "../_components/NuevaCitaModal";
 
 type Cita = {
@@ -12,6 +12,8 @@ type Cita = {
   fin: string;
   estado: string;
   precio_mxn: number;
+  google_event_id?: string | null;
+  calendar_synced_at?: string | null;
   cliente: { id: string; nombre: string; apellido: string | null; whatsapp: string | null } | null;
   servicio: { nombre: string } | null;
 };
@@ -230,9 +232,39 @@ function NuevaCitaModalConFecha({ onClose, fechaInicial }: { onClose: () => void
 // Drawer flotante con detalle de cita seleccionada
 function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
   const router = useRouter();
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [eventId, setEventId] = useState<string | null>(cita.google_event_id ?? null);
+  const [syncedAt, setSyncedAt] = useState<string | null>(cita.calendar_synced_at ?? null);
+
   const inicio = new Date(cita.inicio);
   const fmt = inicio.toLocaleString("es-MX", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
   const wa = cita.cliente?.whatsapp;
+
+  async function syncToCalendar() {
+    setSyncing(true);
+    setSyncError(null);
+    const res = await fetch(`/api/citas/${cita.id}/sync-calendar`, { method: "POST" });
+    const j = await res.json();
+    setSyncing(false);
+    if (!res.ok) {
+      setSyncError(j.hint || j.error || "Error al sincronizar");
+      return;
+    }
+    setEventId(j.event_id);
+    setSyncedAt(new Date().toISOString());
+    router.refresh();
+  }
+
+  async function unsync() {
+    if (!confirm("¿Quitar de Google Calendar? El evento NO se borra de tu calendario, solo desvinculamos del CRM.")) return;
+    setSyncing(true);
+    await fetch(`/api/citas/${cita.id}/sync-calendar`, { method: "DELETE" });
+    setSyncing(false);
+    setEventId(null);
+    setSyncedAt(null);
+    router.refresh();
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-[hsl(149_20%_22%_/_0.5)]" onClick={onClose}>
@@ -255,6 +287,48 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
             <Field label="Precio" value={fmtMxn(Number(cita.precio_mxn))} />
             <Field label="Estado" value={cita.estado} />
             {wa && <Field label="WhatsApp" value={wa} mono />}
+          </div>
+
+          {/* Google Calendar sync */}
+          <div className="mb-4 p-3 rounded-xl bg-[var(--card)] border border-[var(--border)]">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <CalendarCheck className={`w-4 h-4 ${eventId ? "text-[var(--sage-deep)]" : "text-[var(--muted-foreground)]"}`} />
+                <span className="text-sm font-medium">Google Calendar</span>
+              </div>
+              {eventId ? (
+                <span className="text-[10px] text-[var(--sage-deep)] uppercase tracking-wider font-semibold">Sincronizada</span>
+              ) : (
+                <span className="text-[10px] text-[var(--muted-foreground)] uppercase tracking-wider">No sincronizada</span>
+              )}
+            </div>
+            {eventId && syncedAt && (
+              <p className="text-xs text-[var(--muted-foreground)] mb-2">
+                Sincronizada {new Date(syncedAt).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+              </p>
+            )}
+            {syncError && (
+              <div className="text-xs text-[var(--destructive)] flex items-start gap-1.5 mb-2">
+                <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                <span>{syncError}</span>
+              </div>
+            )}
+            <div className="flex gap-2">
+              {eventId ? (
+                <>
+                  <button onClick={syncToCalendar} disabled={syncing} className="btn-ghost !text-xs flex-1 justify-center">
+                    <RefreshCw className={`w-3 h-3 ${syncing ? "animate-spin" : ""}`} /> {syncing ? "..." : "Re-sincronizar"}
+                  </button>
+                  <button onClick={unsync} disabled={syncing} className="btn-ghost !text-xs text-[var(--muted-foreground)]">
+                    Quitar
+                  </button>
+                </>
+              ) : (
+                <button onClick={syncToCalendar} disabled={syncing} className="btn-primary !text-xs w-full justify-center">
+                  <CalendarCheck className="w-3.5 h-3.5" /> {syncing ? "Sincronizando..." : "Agregar a Google Calendar"}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">

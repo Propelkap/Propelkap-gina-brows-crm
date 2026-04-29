@@ -17,7 +17,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const sb = await createClient();
   const { data: citas } = await sb
     .from("citas")
-    .select("id, inicio, fin, estado, precio_mxn, cliente:clientes(id, nombre, apellido, whatsapp), servicio:servicios(nombre)")
+    .select("id, inicio, fin, estado, precio_mxn, google_event_id, calendar_synced_at, cliente:clientes(id, nombre, apellido, whatsapp), servicio:servicios(nombre)")
     .gte("inicio", monday.toISOString())
     .lt("inicio", nextMonday.toISOString())
     .neq("estado", "cancelada")

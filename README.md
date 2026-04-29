@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gina Brows — CRM
 
-## Getting Started
+CRM operativo del estudio de cejas **Gina Brows** (microblading, micropigmentación, remoción láser).
+Manejado por PropelKap como caso real desplegado.
 
-First, run the development server:
+**Stack:** Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · Supabase SSR · Twilio · Resend · Stripe · Lucide.
+
+- **Live:** https://gina-brows-crm.vercel.app
+- **Vercel project:** `gina-brows-crm` (team `team_6Hh9hj1Rx5ykjvksUYzlGcvL`)
+- **Proyectos hermanos del cliente:**
+  - Intake form: `~/gina-brows-intake/` → https://gina-brows.vercel.app
+  - Propuesta: `~/gina-brows-propuesta/` → https://gina-brows-propuesta.vercel.app
+
+---
+
+## 🧬 Setup local
 
 ```bash
+git clone git@github.com:Propelkap/gina-brows-crm.git ~/gina-brows-crm
+cd ~/gina-brows-crm
+npm install
+cp .env.example .env.local      # luego pegar credenciales reales (ver _secretos-env.md en bóveda PropelKap OS)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Migrations Supabase: correr en orden `supabase/migrations/*.sql` desde el SQL Editor.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📐 Estructura
 
-## Learn More
+```
+app/
+├── (app)/                  # rutas autenticadas (CRM)
+├── api/                    # endpoints (campañas, webhooks, etc.)
+├── login/                  # auth Supabase
+└── layout.tsx
 
-To learn more about Next.js, take a look at the following resources:
+lib/
+├── supabase/               # clientes SSR + server-side
+└── ...
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+scripts/                    # utilities (importar AgendaPro, seeds, etc.)
+docs/                       # guías operativas (export AgendaPro, etc.)
+supabase/migrations/        # schema (clientes, citas, paquetes, consentimientos, campañas, bot_feedback)
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 🧪 Features incluidas (obligatorias CRM PropelKap)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- ✅ Thumbs up/down al bot con doble cuadro de feedback (`que_fallo` + `como_debio_responder`).
+- ✅ Sección Contactos para carga manual de leads orgánicos.
+- ✅ Tracking de sesiones X/N en paquetes (Day 13: 2x remoción láser).
+- ✅ Editar cita en drawer.
+- ✅ Base de consentimientos (microblading + remoción láser, basado en PDFs oficiales de Gina Brows).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 🚀 Deploy
+
+```bash
+vercel --prod
+```
+
+Auto-deploy GitHub → Vercel pendiente de configurar (cuando se conecte este repo al proyecto Vercel).
+
+---
+
+## 📚 Convenciones PropelKap
+
+- Idioma UI: español mexicano.
+- Secretos en `_secretos-env.md` por proyecto en la bóveda Obsidian (`~/Desktop/PropelKap OS/02-Proyectos/Gina-Brows-CRM/`).
+- Patrón de implementación replicable: el repo del CRM de Pensiones (Haydée) → `Propelkap/propelkap-crm-pensiones-template`.
+
+---
+
+Owner: Jorge Pérez Briones · `jpbriones@propelkap.com`

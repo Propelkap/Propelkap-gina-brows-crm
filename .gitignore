@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# PropelKap convention — never commit secrets notes
+_secretos-env.md
+**/_secretos-env.md
+
 # vercel
 .vercel
 

@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Cliente = { id: string; nombre: string; apellido: string | null; whatsapp: string | null };
-type Servicio = { id: string; nombre: string; precio_mxn: number; duracion_min: number };
+type Servicio = { id: string; nombre: string; precio_mxn: number; duracion_min: number; sesiones_paquete?: number };
+type SesionInfo = { sesion_numero: number; sesiones_totales: number; precio_mxn: number; es_paquete: boolean };
 
 const fmtMxn = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
@@ -27,17 +28,39 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
   const [notas, setNotas] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sesionInfo, setSesionInfo] = useState<SesionInfo | null>(null);
 
   useEffect(() => {
-    sb.from("servicios").select("id, nombre, precio_mxn, duracion_min").eq("visible", true).order("orden").then(({ data }) => setServicios(data ?? []));
+    sb.from("servicios").select("id, nombre, precio_mxn, duracion_min, sesiones_paquete").eq("visible", true).order("orden").then(({ data }) => setServicios(data ?? []));
     if (!clientePreseleccionado) {
       sb.from("clientes").select("id, nombre, apellido, whatsapp").eq("archivada", false).limit(500).then(({ data }) => setClientes(data ?? []));
     }
   }, []);
 
+  // Cuando hay cliente + servicio paquete, consultar RPC para saber qué sesión sería y a qué precio
   useEffect(() => {
-    if (servicio) setPrecio(String(servicio.precio_mxn));
-  }, [servicio]);
+    if (!servicio || !cliente) {
+      setSesionInfo(null);
+      if (servicio) setPrecio(String(servicio.precio_mxn));
+      return;
+    }
+    if ((servicio.sesiones_paquete ?? 1) <= 1) {
+      setSesionInfo(null);
+      setPrecio(String(servicio.precio_mxn));
+      return;
+    }
+    // Es paquete: consultar el RPC
+    sb.rpc("calcular_proxima_sesion_paquete", {
+      p_cliente_id: cliente.id,
+      p_servicio_id: servicio.id,
+    }).then(({ data }) => {
+      if (data && data.length > 0) {
+        const r = data[0] as SesionInfo;
+        setSesionInfo(r);
+        setPrecio(String(r.precio_mxn));
+      }
+    });
+  }, [servicio, cliente]);
 
   const filtrados = useMemo(() => {
     if (!search.trim()) return clientes.slice(0, 8);
@@ -156,10 +179,22 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
               <option value="">— Selecciona un servicio —</option>
               {servicios.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.nombre} · {fmtMxn(Number(s.precio_mxn))} · {s.duracion_min} min
+                  {s.nombre} · {fmtMxn(Number(s.precio_mxn))} · {s.duracion_min} min{(s.sesiones_paquete ?? 1) > 1 ? ` · paquete ${s.sesiones_paquete} sesiones` : ""}
                 </option>
               ))}
             </select>
+            {sesionInfo && sesionInfo.es_paquete && (
+              <div className="mt-2 bg-[var(--secondary)]/15 border border-[var(--primary)] rounded-lg p-3 text-sm">
+                <p className="font-semibold text-[var(--primary-dark)]">
+                  Sesión {sesionInfo.sesion_numero}/{sesionInfo.sesiones_totales} del paquete
+                </p>
+                <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                  {sesionInfo.sesion_numero === 1
+                    ? `Esta es la primera sesión: se cobra el paquete completo de ${fmtMxn(sesionInfo.precio_mxn)}.`
+                    : `El paquete ya fue cobrado en la sesión 1. Esta sesión queda en $0.`}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Fecha y hora */}

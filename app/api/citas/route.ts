@@ -37,12 +37,13 @@ export async function POST(req: Request) {
     });
     if (paq && paq.length > 0) {
       const r = paq[0];
+      // SIEMPRE confiar en el RPC para paquetes (1ra cobra total, 2da+ cobra 0).
+      // Ignoramos el precio_mxn que mande el frontend para evitar que el usuario duplique cobros.
       paqueteData = {
         paquete_grupo_id: r.paquete_grupo_id,
         sesion_numero: r.sesion_numero,
         sesiones_totales: r.sesiones_totales,
-        // Si el usuario pasó precio_mxn explícito, respeto. Si no, uso el calculado (0 para 2da/3ra).
-        precio_calculado: precio_mxn !== undefined && precio_mxn !== null ? Number(precio_mxn) : Number(r.precio_mxn),
+        precio_calculado: Number(r.precio_mxn),
       };
     }
   }

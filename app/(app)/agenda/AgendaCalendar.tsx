@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, MessageCircle, CalendarCheck, RefreshCw, AlertCircle } from "lucide-react";
 import NuevaCitaModal from "../_components/NuevaCitaModal";
 import GenerarConsentimientoBtn from "../_components/GenerarConsentimientoBtn";
+import CheckoutCita from "../_components/CheckoutCita";
 
 type Cita = {
   id: string;
@@ -331,12 +332,14 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
               <div className="space-y-3 mb-4">
                 <Field label="Servicio" value={`${cita.servicio?.nombre ?? "—"}${cita.sesion_numero && cita.sesiones_totales ? ` (${cita.sesion_numero}/${cita.sesiones_totales})` : ""}`} />
                 <Field label="Cuándo" value={fmt} />
-                <Field label="Precio" value={fmtMxn(Number(cita.precio_mxn))} />
+                <Field label="Precio servicio principal" value={fmtMxn(Number(cita.precio_mxn))} />
                 <Field label="Estado" value={cita.estado} />
                 {cita.notas_internas && <Field label="Notas" value={cita.notas_internas} />}
                 {wa && <Field label="WhatsApp" value={wa} mono />}
               </div>
-              <button onClick={() => setEditing(true)} className="btn-ghost w-full justify-center mb-4 !text-xs">
+              {/* Check-out con items extras consumidos */}
+              <CheckoutCita citaId={cita.id} precioServicio={Number(cita.precio_mxn)} />
+              <button onClick={() => setEditing(true)} className="btn-ghost w-full justify-center my-4 !text-xs">
                 ✏️ Editar cita
               </button>
             </>

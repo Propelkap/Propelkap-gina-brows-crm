@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Phone, Mail, Calendar, Cake, AlertTriangle, Heart, MessageCircle } from "lucide-react";
 import FotosClienta from "../../_components/FotosClienta";
-import CitaActions from "../../_components/CitaActions";
 import GenerarConsentimientoBtn from "../../_components/GenerarConsentimientoBtn";
+import CitasHistorialClient from "./CitasHistorialClient";
 
 export const dynamic = "force-dynamic";
 
@@ -209,47 +209,14 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
       {/* Historial de citas */}
       <section className="mb-8">
         <h2 className="text-lg mb-3">Historial de citas ({citas.length})</h2>
-        <div className="card !p-0 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[var(--border)] text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
-                  <th className="text-left px-4 py-2.5 font-medium">Fecha</th>
-                  <th className="text-left px-3 py-2.5 font-medium">Servicio</th>
-                  <th className="text-left px-3 py-2.5 font-medium">Estado</th>
-                  <th className="text-right px-4 py-2.5 font-medium">Precio</th>
-                </tr>
-              </thead>
-              <tbody>
-                {citas.slice(0, 50).map((c) => {
-                  const est = ESTADO_LABELS[c.estado] ?? { label: c.estado, color: "" };
-                  const esFutura = new Date(c.inicio) > new Date();
-                  return (
-                    <tr key={c.id} className="border-b border-[var(--border)] last:border-0 align-top">
-                      <td className="px-4 py-2.5 text-sm whitespace-nowrap">{fmtDateTime(c.inicio)}</td>
-                      <td className="px-3 py-2.5 text-sm">{c.servicio?.nombre}</td>
-                      <td className={`px-3 py-2.5 text-sm font-medium ${est.color}`}>
-                        {est.label}
-                        {esFutura && c.estado !== "completada" && c.estado !== "cancelada" && (
-                          <CitaActions citaId={c.id} estadoActual={c.estado} precioMxn={Number(c.precio_mxn)} clienteWhatsapp={cliente.whatsapp} />
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 text-sm text-right font-mono">{fmtMxn(Number(c.precio_mxn))}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {citas.length === 0 && (
-            <div className="px-4 py-8 text-center text-[var(--muted-foreground)] text-sm">Sin citas registradas aún</div>
-          )}
-          {citas.length > 50 && (
-            <div className="px-4 py-2 border-t border-[var(--border)] text-xs text-[var(--muted-foreground)] text-center">
-              Mostrando 50 más recientes de {citas.length}
-            </div>
-          )}
-        </div>
+        {citas.length === 0 ? (
+          <div className="card text-center py-8 text-sm text-[var(--muted-foreground)]">Sin citas registradas aún</div>
+        ) : (
+          <CitasHistorialClient citas={citas} clienteWhatsapp={cliente.whatsapp} />
+        )}
+        {citas.length > 50 && (
+          <p className="text-xs text-[var(--muted-foreground)] text-center mt-2">Mostrando 50 más recientes de {citas.length}</p>
+        )}
       </section>
     </div>
   );

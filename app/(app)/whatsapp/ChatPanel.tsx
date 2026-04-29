@@ -20,6 +20,8 @@ export default function ChatPanel({ cliente, onBack }: { cliente: { id: string; 
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [loading, setLoading] = useState(true);
   const [feedbackOpen, setFeedbackOpen] = useState<{ msg: Mensaje } | null>(null);
+  // Track de feedback ya dado por mensaje: 'up' | 'down' | undefined
+  const [feedbackDado, setFeedbackDado] = useState<Record<string, "up" | "down">>({});
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [pausado, setPausado] = useState(cliente.bot_pausado);
@@ -27,20 +29,29 @@ export default function ChatPanel({ cliente, onBack }: { cliente: { id: string; 
   const [pausaModal, setPausaModal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Cargar mensajes
+  // Cargar mensajes + feedback existente
   useEffect(() => {
     setLoading(true);
-    sb.from("comunicaciones")
-      .select("id, cuerpo, direccion, enviado_at, template_usado")
-      .eq("cliente_id", cliente.id)
-      .eq("canal", "whatsapp")
-      .order("enviado_at", { ascending: true })
-      .limit(200)
-      .then(({ data }) => {
-        setMensajes((data ?? []) as Mensaje[]);
-        setLoading(false);
-        setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
+    Promise.all([
+      sb.from("comunicaciones")
+        .select("id, cuerpo, direccion, enviado_at, template_usado")
+        .eq("cliente_id", cliente.id)
+        .eq("canal", "whatsapp")
+        .order("enviado_at", { ascending: true })
+        .limit(200),
+      sb.from("bot_feedback")
+        .select("comunicacion_id, tipo")
+        .eq("cliente_id", cliente.id),
+    ]).then(([msgRes, fbRes]) => {
+      setMensajes((msgRes.data ?? []) as Mensaje[]);
+      const fbMap: Record<string, "up" | "down"> = {};
+      (fbRes.data ?? []).forEach((f: { comunicacion_id: string | null; tipo: "up" | "down" }) => {
+        if (f.comunicacion_id) fbMap[f.comunicacion_id] = f.tipo;
       });
+      setFeedbackDado(fbMap);
+      setLoading(false);
+      setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
+    });
   }, [cliente.id]);
 
   async function togglePausa() {
@@ -72,11 +83,21 @@ export default function ChatPanel({ cliente, onBack }: { cliente: { id: string; 
   }
 
   async function thumbUp(msg: Mensaje) {
-    await fetch("/api/bot-feedback", {
+    // Optimistic update — marca de inmediato en verde
+    setFeedbackDado((prev) => ({ ...prev, [msg.id]: "up" }));
+    const res = await fetch("/api/bot-feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ comunicacion_id: msg.id, cliente_id: cliente.id, tipo: "up" }),
     });
+    if (!res.ok) {
+      // Revertir si falla
+      setFeedbackDado((prev) => {
+        const next = { ...prev };
+        delete next[msg.id];
+        return next;
+      });
+    }
   }
 
   return (
@@ -152,20 +173,37 @@ export default function ChatPanel({ cliente, onBack }: { cliente: { id: string; 
                   )}
                   {isBot && (
                     <div className="flex gap-1">
-                      <button
-                        onClick={() => thumbUp(m)}
-                        className="p-1 rounded-full hover:bg-[var(--sage-light)] text-[var(--muted-foreground)] hover:text-[var(--sage-deep)] transition-colors"
-                        title="Buena respuesta"
-                      >
-                        <ThumbsUp className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => setFeedbackOpen({ msg: m })}
-                        className="p-1 rounded-full hover:bg-[hsl(0_84%_60%_/_0.1)] text-[var(--muted-foreground)] hover:text-[var(--destructive)] transition-colors"
-                        title="Mala respuesta — corregir"
-                      >
-                        <ThumbsDown className="w-3 h-3" />
-                      </button>
+                      {(() => {
+                        const fb = feedbackDado[m.id];
+                        const isUp = fb === "up";
+                        const isDown = fb === "down";
+                        return (
+                          <>
+                            <button
+                              onClick={() => !isUp && thumbUp(m)}
+                              className={`p-1 rounded-full transition-colors ${
+                                isUp
+                                  ? "bg-[var(--sage)] text-white"
+                                  : "text-[var(--muted-foreground)] hover:bg-[var(--sage-light)] hover:text-[var(--sage-deep)]"
+                              }`}
+                              title={isUp ? "Marcado como buena respuesta ✓" : "Buena respuesta"}
+                            >
+                              <ThumbsUp className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => setFeedbackOpen({ msg: m })}
+                              className={`p-1 rounded-full transition-colors ${
+                                isDown
+                                  ? "bg-[var(--destructive)] text-white"
+                                  : "text-[var(--muted-foreground)] hover:bg-[hsl(0_84%_60%_/_0.1)] hover:text-[var(--destructive)]"
+                              }`}
+                              title={isDown ? "Marcado como mala respuesta (corrección guardada)" : "Mala respuesta — corregir"}
+                            >
+                              <ThumbsDown className="w-3 h-3" />
+                            </button>
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -222,6 +260,10 @@ export default function ChatPanel({ cliente, onBack }: { cliente: { id: string; 
           mensaje={feedbackOpen.msg}
           clienteId={cliente.id}
           onClose={() => setFeedbackOpen(null)}
+          onSaved={() => {
+            setFeedbackDado((prev) => ({ ...prev, [feedbackOpen.msg.id]: "down" }));
+            setFeedbackOpen(null);
+          }}
         />
       )}
 
@@ -251,14 +293,14 @@ export default function ChatPanel({ cliente, onBack }: { cliente: { id: string; 
   );
 }
 
-function FeedbackDownModal({ mensaje, clienteId, onClose }: { mensaje: Mensaje; clienteId: string; onClose: () => void }) {
+function FeedbackDownModal({ mensaje, clienteId, onClose, onSaved }: { mensaje: Mensaje; clienteId: string; onClose: () => void; onSaved?: () => void }) {
   const [corregido, setCorregido] = useState("");
   const [contexto, setContexto] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function submit() {
     setSubmitting(true);
-    await fetch("/api/bot-feedback", {
+    const res = await fetch("/api/bot-feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -271,7 +313,8 @@ function FeedbackDownModal({ mensaje, clienteId, onClose }: { mensaje: Mensaje; 
       }),
     });
     setSubmitting(false);
-    onClose();
+    if (res.ok && onSaved) onSaved();
+    else onClose();
   }
 
   return (

@@ -1,16 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { Save, Sparkles, Check } from "lucide-react";
+import { Save, Sparkles, Check, X, AlertCircle, Calendar } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 import FeedbackBot from "./FeedbackBot";
+
+type CalendarToken = { created_at: string; expires_at: string; scope: string | null } | null | undefined;
 
 const fmtMxn = (n: number | null) =>
   n != null
     ? new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(Number(n))
     : "—";
 
-export default function ConfiguracionClient({ config, servicios }: { config: any; servicios: any[] }) {
+export default function ConfiguracionClient({
+  config, servicios, calendarToken, calendarFlash,
+}: {
+  config: any;
+  servicios: any[];
+  calendarToken?: CalendarToken;
+  calendarFlash?: string;
+}) {
+  const router = useRouter();
   const [data, setData] = useState({
     nombre_estudio: config?.nombre_estudio ?? "",
     whatsapp_estudio: config?.whatsapp_estudio ?? "",
@@ -90,17 +101,7 @@ export default function ConfiguracionClient({ config, servicios }: { config: any
       </Section>
 
       <Section title="Integraciones">
-        <div className="card flex items-center justify-between">
-          <div>
-            <p className="font-semibold mb-1 flex items-center gap-2">
-              <span>📅</span> Google Calendar
-            </p>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              Conecta tu calendario para que las citas confirmadas con Stripe se agreguen automáticamente.
-            </p>
-          </div>
-          <a href="/api/calendar/connect" className="btn-primary !text-xs">Conectar</a>
-        </div>
+        <CalendarIntegration token={calendarToken} flash={calendarFlash} router={router} />
       </Section>
 
       <Section title="Reglas operativas">
@@ -145,6 +146,83 @@ export default function ConfiguracionClient({ config, servicios }: { config: any
         </p>
       </Section>
     </div>
+  );
+}
+
+function CalendarIntegration({ token, flash, router }: { token: CalendarToken; flash?: string; router: any }) {
+  const [busy, setBusy] = useState(false);
+  const [showFlash, setShowFlash] = useState(!!flash);
+
+  async function disconnect() {
+    if (!confirm("¿Desconectar Google Calendar? Las nuevas citas dejarán de sincronizarse.")) return;
+    setBusy(true);
+    await fetch("/api/calendar/disconnect", { method: "POST" });
+    setBusy(false);
+    router.refresh();
+  }
+
+  const flashMessages: Record<string, { msg: string; ok: boolean }> = {
+    connected: { msg: "✓ Google Calendar conectado correctamente.", ok: true },
+    error: { msg: "Hubo un error en el flujo de OAuth. Intenta de nuevo.", ok: false },
+    token_error: { msg: "No pude intercambiar el código por tokens. Verifica las credenciales.", ok: false },
+  };
+  const flashData = flash ? flashMessages[flash] : null;
+
+  return (
+    <>
+      {flashData && showFlash && (
+        <div className={`flex items-start justify-between gap-3 p-4 rounded-2xl border ${
+          flashData.ok
+            ? "bg-[var(--sage-light)] border-[var(--sage-deep)] text-[var(--sage-deep)]"
+            : "bg-[hsl(0_84%_60%_/_0.08)] border-[var(--destructive)] text-[var(--destructive)]"
+        }`}>
+          <p className="text-sm font-medium">{flashData.msg}</p>
+          <button onClick={() => setShowFlash(false)} className="opacity-70 hover:opacity-100">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <div className="card flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-[var(--secondary)]/40 flex items-center justify-center text-lg shrink-0">
+            📅
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold mb-1">Google Calendar</p>
+            {token ? (
+              <>
+                <p className="text-sm text-[var(--sage-deep)] flex items-center gap-1.5 mb-1">
+                  <Check className="w-3.5 h-3.5" /> Conectado
+                </p>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Desde {new Date(token.created_at).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })} · token vigente hasta {new Date(token.expires_at).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                </p>
+                <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                  Las citas confirmadas con Stripe se agregarán automáticamente al calendario, con la clienta como invitada por email.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-[var(--muted-foreground)]">
+                Conecta tu calendario para que las citas confirmadas con Stripe se agreguen automáticamente, con la clienta como invitada por email.
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {token ? (
+            <>
+              <a href="/api/calendar/connect" className="btn-ghost !text-xs">Reconectar</a>
+              <button onClick={disconnect} disabled={busy} className="btn-ghost !text-xs text-[var(--destructive)]">
+                {busy ? "Desconectando…" : "Desconectar"}
+              </button>
+            </>
+          ) : (
+            <a href="/api/calendar/connect" className="btn-primary !text-xs">Conectar</a>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 

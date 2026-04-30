@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Banknote, CreditCard, Receipt, ArrowLeftRight, Gift, Send,
-  Trash2, CheckCircle2, Clock, Wallet, AlertCircle,
+  Trash2, CheckCircle2, Clock, Wallet, AlertCircle, Plus, Split,
 } from "lucide-react";
 
 type Metodo =
@@ -70,6 +70,7 @@ export default function CobrarCita({ citaId }: { citaId: string }) {
   const [monto, setMonto] = useState<string>("");
   const [referencia, setReferencia] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [ultimoPagoFlash, setUltimoPagoFlash] = useState<string | null>(null);
 
   useEffect(() => { cargar(); }, [citaId]);
 
@@ -105,6 +106,7 @@ export default function CobrarCita({ citaId }: { citaId: string }) {
     if (!montoNum || montoNum <= 0) { setError("Pon el monto a cobrar"); return; }
     setSaving(true);
     setError(null);
+    const metodoLabel = METODO_LABELS[selectedMetodo] ?? selectedMetodo;
     const res = await fetch(`/api/citas/${citaId}/pagos`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -124,6 +126,8 @@ export default function CobrarCita({ citaId }: { citaId: string }) {
     setSelectedMetodo(null);
     setReferencia("");
     setMonto("");
+    setUltimoPagoFlash(`✓ ${metodoLabel} ${fmtMxn(montoNum)} registrado`);
+    setTimeout(() => setUltimoPagoFlash(null), 4000);
     await cargar();
   }
 
@@ -212,10 +216,36 @@ export default function CobrarCita({ citaId }: { citaId: string }) {
         />
       </div>
 
+      {/* Flash de confirmacion despues de registrar un pago */}
+      {ultimoPagoFlash && (
+        <div className="bg-[var(--sage-light)] border border-[var(--sage-deep)]/40 rounded-lg p-2.5 mb-3 text-xs text-[var(--sage-deep)] font-medium flex items-center justify-between">
+          <span>{ultimoPagoFlash}</span>
+          {saldoPendiente && (
+            <span className="text-[var(--primary-dark)]">
+              Falta {fmtMxn(Number(saldo.saldo_mxn))}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Grid de metodos de pago — solo si hay saldo */}
       {saldoPendiente && (
         <>
-          <p className="text-xs font-semibold mb-2 text-[var(--foreground)]">Método de pago</p>
+          {/* Hint de combinacion (solo si aun no hay pagos parciales) */}
+          {pagos.length === 0 && (
+            <div className="bg-[var(--secondary)]/15 border border-[var(--primary)]/30 rounded-lg p-2.5 mb-3 text-[11px] text-[var(--primary-dark)] flex gap-1.5 items-start">
+              <Split className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>
+                <strong>Tip:</strong> Puedes combinar métodos. Cobra una parte en
+                efectivo, envía submit, y luego registra otro pago con tarjeta o
+                transferencia hasta saldar.
+              </span>
+            </div>
+          )}
+
+          <p className="text-xs font-semibold mb-2 text-[var(--foreground)]">
+            {pagos.length === 0 ? "Método de pago" : `Agregar otro método (${pagos.length} ya registrado${pagos.length !== 1 ? "s" : ""})`}
+          </p>
           <div className="grid grid-cols-3 gap-2 mb-3">
             {METODOS.map((m) => {
               const sel = selectedMetodo === m.id;
@@ -238,15 +268,35 @@ export default function CobrarCita({ citaId }: { citaId: string }) {
             })}
           </div>
 
+          {/* Chips rapidos para dividir el saldo */}
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            <span className="text-[10px] text-[var(--muted-foreground)] self-center mr-1">Atajo:</span>
+            <button
+              type="button"
+              onClick={() => setMonto(String(saldo.saldo_mxn))}
+              className="text-[11px] px-2 py-1 rounded-full bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]/60"
+            >
+              Todo el saldo · {fmtMxn(Number(saldo.saldo_mxn))}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMonto(String(Math.round(Number(saldo.saldo_mxn) / 2)))}
+              className="text-[11px] px-2 py-1 rounded-full bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]/60"
+            >
+              ½ del saldo · {fmtMxn(Math.round(Number(saldo.saldo_mxn) / 2))}
+            </button>
+          </div>
+
           {/* Monto + referencia */}
           <div className="grid grid-cols-[1fr_1fr] gap-2 mb-2">
             <div>
               <label className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] font-medium">Monto MXN</label>
               <input
                 type="number"
+                inputMode="decimal"
                 value={monto}
                 onChange={(e) => setMonto(e.target.value)}
-                placeholder={String(saldo.saldo_mxn)}
+                placeholder={`Ej. ${saldo.saldo_mxn}`}
                 className="!text-sm"
               />
             </div>
@@ -262,10 +312,6 @@ export default function CobrarCita({ citaId }: { citaId: string }) {
             </div>
           </div>
 
-          <p className="text-[10px] text-[var(--muted-foreground)] mb-2">
-            💡 Si el monto es menor al saldo, queda como abono parcial y la cita seguirá cobrable.
-          </p>
-
           {error && (
             <div className="flex items-center gap-1.5 text-xs text-[var(--destructive)] mb-2">
               <AlertCircle className="w-3.5 h-3.5" /> {error}
@@ -278,7 +324,11 @@ export default function CobrarCita({ citaId }: { citaId: string }) {
               disabled={saving || !selectedMetodo}
               className="btn-primary flex-1 justify-center !text-xs disabled:opacity-50"
             >
-              {saving ? "Registrando…" : "Registrar pago"}
+              {saving
+                ? "Registrando…"
+                : pagos.length === 0
+                  ? "Registrar pago"
+                  : <><Plus className="w-3 h-3" /> Agregar este pago</>}
             </button>
             <button
               type="button"

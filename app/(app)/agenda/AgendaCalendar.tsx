@@ -267,9 +267,10 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
   const [eventId, setEventId] = useState<string | null>(cita.google_event_id ?? null);
   const [syncedAt, setSyncedAt] = useState<string | null>(cita.calendar_synced_at ?? null);
   const [editing, setEditing] = useState(false);
+  const _inicioLocal = new Date(cita.inicio);
   const [editForm, setEditForm] = useState({
-    fecha: cita.inicio.slice(0, 10),
-    hora: cita.inicio.slice(11, 16),
+    fecha: localYmd(_inicioLocal),
+    hora: `${String(_inicioLocal.getHours()).padStart(2, "0")}:${String(_inicioLocal.getMinutes()).padStart(2, "0")}`,
     precio_mxn: String(cita.precio_mxn),
     estado: cita.estado,
     notas_internas: cita.notas_internas ?? "",

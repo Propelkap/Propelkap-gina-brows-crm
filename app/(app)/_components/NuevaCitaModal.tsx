@@ -12,6 +12,20 @@ type SesionInfo = { sesion_numero: number; sesiones_totales: number; precio_mxn:
 const fmtMxn = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 
+/** YMD en TZ local (no UTC). Evita el shift al dia siguiente cuando son las
+ *  noches en MX (UTC-6) y toISOString() salta de dia. */
+function localYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+/** HH:MM en hora local. */
+function localHm(d: Date): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaInicial }: { onClose: () => void; clientePreseleccionado?: Cliente; fechaInicial?: Date | null }) {
   const router = useRouter();
   const sb = createClient();
@@ -21,8 +35,8 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
   const [search, setSearch] = useState("");
   const [cliente, setCliente] = useState<Cliente | null>(clientePreseleccionado ?? null);
   const [servicio, setServicio] = useState<Servicio | null>(null);
-  const [fecha, setFecha] = useState(() => fechaInicial ? fechaInicial.toISOString().slice(0, 10) : "");
-  const [hora, setHora] = useState(() => fechaInicial ? fechaInicial.toISOString().slice(11, 16) : "");
+  const [fecha, setFecha] = useState(() => fechaInicial ? localYmd(fechaInicial) : "");
+  const [hora, setHora] = useState(() => fechaInicial ? localHm(fechaInicial) : "");
   const [precio, setPrecio] = useState<string>("");
   const [anticipo, setAnticipo] = useState<string>("");
   const [notas, setNotas] = useState("");
@@ -203,7 +217,7 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
               <label className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] font-medium mb-2 block flex items-center gap-2">
                 <Calendar className="w-3 h-3" /> Fecha
               </label>
-              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} min={new Date().toISOString().slice(0, 10)} />
+              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} min={localYmd(new Date())} />
             </div>
             <div>
               <label className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] font-medium mb-2 block">Hora</label>

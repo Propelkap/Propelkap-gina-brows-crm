@@ -18,6 +18,32 @@ type Estructura = {
 
 type Respuestas = Record<string, string | boolean>;
 
+/**
+ * Sanitiza texto a WinAnsi (CP1252) para que pdf-lib + StandardFonts.Helvetica
+ * no exploten con caracteres Unicode (em-dash, comillas curvas iOS, flechas, emoji, etc.).
+ * Mapea los más comunes a equivalentes ASCII y elimina lo no codificable.
+ */
+function safeText(input: unknown): string {
+  if (input == null) return "";
+  let s = String(input);
+  // Reemplazos comunes
+  s = s
+    .replace(/[‘’‚‛]/g, "'")  // smart single quotes
+    .replace(/[“”„‟]/g, '"')  // smart double quotes
+    .replace(/[–—―]/g, "-")          // en/em dash
+    .replace(/…/g, "...")                       // ellipsis
+    .replace(/•/g, "*")                         // bullet
+    .replace(/[→➡]/g, ">")                // arrow right
+    .replace(/[←]/g, "<")                       // arrow left
+    .replace(/[✓✔]/g, "v")                // check
+    .replace(/[✗✘]/g, "x")                // cross
+    .replace(/ /g, " ");                        // nbsp -> space
+  // Filtra cualquier char fuera de WinAnsi (CP1252). Mantiene latin-1 + chars WinAnsi 0x80-0x9F.
+  // Set seguro: ASCII imprimible + latin-1 supplement + chars WinAnsi específicos.
+  s = s.replace(/[^\x09\x0A\x0D\x20-\x7E¡-ÿ€ŒœŠšŸŽžƒˆ˜‰‹›]/g, "");
+  return s;
+}
+
 export async function generarPdfConsentimiento(opts: {
   estructura: Estructura;
   respuestas: Respuestas;
@@ -77,7 +103,7 @@ export async function generarPdfConsentimiento(opts: {
     const font = opts.bold ? helvBold : (opts.font ?? helv);
     const color = opts.color ?? cBlack;
     const maxWidth = opts.maxWidth ?? A4_W - 2 * margin;
-    const lines = wrapText(text, maxWidth, font, size);
+    const lines = wrapText(safeText(text), maxWidth, font, size);
     for (const line of lines) {
       ensureSpace(lineH);
       page.drawText(line, { x, y, size, font, color });
@@ -108,7 +134,7 @@ export async function generarPdfConsentimiento(opts: {
   drawText("DATOS DEL CLIENTE", { bold: true, size: 10 });
   y -= 4;
   for (const f of opts.estructura.datos_personales) {
-    const valor = String(opts.respuestas[f.id] ?? "—");
+    const valor = String(opts.respuestas[f.id] ?? "-");
     drawText(`${f.label}: ${valor}`);
   }
   y -= 6;
@@ -119,7 +145,7 @@ export async function generarPdfConsentimiento(opts: {
   y -= 4;
   for (let i = 0; i < opts.estructura.declaraciones.length; i++) {
     const decl = opts.estructura.declaraciones[i];
-    const ini = opts.iniciales[`decl_${i}`] ?? "—";
+    const ini = opts.iniciales[`decl_${i}`] ?? "-";
     drawText(`[${ini}] ${decl}`, { size: bodySize });
     y -= 2;
   }
@@ -134,8 +160,8 @@ export async function generarPdfConsentimiento(opts: {
     const respuestaTxt = r === true || r === "si" ? "SÍ" : "NO";
     const color = respuestaTxt === "SÍ" ? rgb(0.85, 0.3, 0.3) : cMuted;
     ensureSpace(lineH);
-    page.drawText(q.pregunta, { x: margin, y, size: bodySize, font: helv, color: cBlack });
-    page.drawText(respuestaTxt, { x: A4_W - margin - 30, y, size: bodySize, font: helvBold, color });
+    page.drawText(safeText(q.pregunta), { x: margin, y, size: bodySize, font: helv, color: cBlack });
+    page.drawText(safeText(respuestaTxt), { x: A4_W - margin - 30, y, size: bodySize, font: helvBold, color });
     y -= lineH;
   }
 
@@ -153,7 +179,7 @@ export async function generarPdfConsentimiento(opts: {
   y -= 4;
   drawText(opts.estructura.autoriza_fotos.pregunta);
   const autorizaFotos = opts.respuestas.autoriza_fotos === true || opts.respuestas.autoriza_fotos === "si";
-  drawText(`→ ${autorizaFotos ? "SÍ AUTORIZA" : "NO AUTORIZA"}`, { bold: true, color: autorizaFotos ? rgb(0.2, 0.6, 0.3) : rgb(0.85, 0.3, 0.3) });
+  drawText(`> ${autorizaFotos ? "SÍ AUTORIZA" : "NO AUTORIZA"}`, { bold: true, color: autorizaFotos ? rgb(0.2, 0.6, 0.3) : rgb(0.85, 0.3, 0.3) });
   y -= 6;
   divider();
 

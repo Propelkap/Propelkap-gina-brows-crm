@@ -67,8 +67,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       ip: ip ?? undefined,
     });
   } catch (e) {
-    console.error("PDF generation error:", e);
-    return NextResponse.json({ error: "No pude generar el PDF" }, { status: 500 });
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error("PDF generation error:", msg, e);
+    return NextResponse.json(
+      { error: "No pude generar el PDF", detail: msg },
+      { status: 500 }
+    );
   }
 
   // 4. Subir PDF al bucket

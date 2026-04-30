@@ -8,7 +8,9 @@ import NuevaCitaModal from "../_components/NuevaCitaModal";
 import GenerarConsentimientoBtn from "../_components/GenerarConsentimientoBtn";
 import CheckoutCita from "../_components/CheckoutCita";
 import CobrarCita from "../_components/CobrarCita";
-import { localYmd as localYmdShared, buildLocalDate } from "@/lib/date-helpers";
+import { localYmd as localYmdShared, buildLocalDate, parseFechaMX, fmtFechaMX, generarHorarios } from "@/lib/date-helpers";
+
+const HORARIOS = generarHorarios(8, 22, 15);
 
 type Cita = {
   id: string;
@@ -263,9 +265,11 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
   const [syncedAt, setSyncedAt] = useState<string | null>(cita.calendar_synced_at ?? null);
   const [editing, setEditing] = useState(false);
   const _inicioLocal = new Date(cita.inicio);
+  const _horaInicial = `${String(_inicioLocal.getHours()).padStart(2, "0")}:${String(_inicioLocal.getMinutes()).padStart(2, "0")}`;
   const [editForm, setEditForm] = useState({
     fecha: localYmd(_inicioLocal),
-    hora: `${String(_inicioLocal.getHours()).padStart(2, "0")}:${String(_inicioLocal.getMinutes()).padStart(2, "0")}`,
+    fechaInput: fmtFechaMX(localYmd(_inicioLocal)),
+    hora: _horaInicial,
     precio_mxn: String(cita.precio_mxn),
     estado: cita.estado,
     notas_internas: cita.notas_internas ?? "",
@@ -375,11 +379,31 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] font-medium">Fecha</label>
-                  <input type="date" value={editForm.fecha} onChange={(e) => setEditForm({ ...editForm, fecha: e.target.value })} />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={editForm.fechaInput}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const parsed = parseFechaMX(raw);
+                      setEditForm({ ...editForm, fechaInput: raw, fecha: parsed ?? "" });
+                    }}
+                    placeholder="DD/MM/AAAA"
+                    autoComplete="off"
+                  />
                 </div>
                 <div>
                   <label className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] font-medium">Hora</label>
-                  <input type="time" value={editForm.hora} onChange={(e) => setEditForm({ ...editForm, hora: e.target.value })} />
+                  <select value={editForm.hora} onChange={(e) => setEditForm({ ...editForm, hora: e.target.value })}>
+                    <option value="">— Selecciona —</option>
+                    {HORARIOS.map((h) => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                    {/* Si la hora actual de la cita NO esta en HORARIOS (ej. 17:43 importada), agregarla */}
+                    {!HORARIOS.includes(editForm.hora) && editForm.hora && (
+                      <option value={editForm.hora}>{editForm.hora}</option>
+                    )}
+                  </select>
                 </div>
               </div>
               <div>

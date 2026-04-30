@@ -51,6 +51,22 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
     }
   }, []);
 
+  // Sincronizar fecha/hora cuando cambia el slot pre-elegido del calendario.
+  // El lazy initializer de useState solo corre una vez al montar — esto
+  // garantiza que cualquier render con nuevo fechaInicial actualice el form.
+  useEffect(() => {
+    if (fechaInicial) {
+      setFecha(localYmd(fechaInicial));
+      setHora(localHm(fechaInicial));
+    }
+  }, [fechaInicial]);
+
+  // Auto-limpiar error de validacion cuando el usuario edita cualquier campo
+  // (evita que el mensaje "Falta: X" quede fijo despues de corregirlo).
+  useEffect(() => {
+    if (error?.startsWith("Falta:")) setError(null);
+  }, [cliente, servicio, fecha, hora]);
+
   // Cuando hay cliente + servicio paquete, consultar RPC para saber qué sesión sería y a qué precio
   useEffect(() => {
     if (!servicio || !cliente) {

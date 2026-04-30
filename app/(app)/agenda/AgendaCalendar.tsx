@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, MessageCircle, Ca
 import NuevaCitaModal from "../_components/NuevaCitaModal";
 import GenerarConsentimientoBtn from "../_components/GenerarConsentimientoBtn";
 import CheckoutCita from "../_components/CheckoutCita";
+import CobrarCita from "../_components/CobrarCita";
 
 type Cita = {
   id: string;
@@ -358,8 +359,10 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
                 {cita.notas_internas && <Field label="Notas" value={cita.notas_internas} />}
                 {wa && <Field label="WhatsApp" value={wa} mono />}
               </div>
-              {/* Check-out con items extras consumidos */}
+              {/* Check-out: items extras consumidos */}
               <CheckoutCita citaId={cita.id} precioServicio={Number(cita.precio_mxn)} />
+              {/* Cobro: metodos de pago + abonos + saldo */}
+              <CobrarCita citaId={cita.id} />
               <button onClick={() => setEditing(true)} className="btn-ghost w-full justify-center my-4 !text-xs">
                 ✏️ Editar cita
               </button>

@@ -29,6 +29,15 @@ const SLOT_MIN = 30;   // bloques de 30 min
 const ROW_HEIGHT = 32; // px por slot
 const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
+/** YMD en TZ local del cliente. Usar en vez de toISOString() para evitar
+ *  brincar de dia con la diferencia UTC. */
+function localYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
 const fmtMxn = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
 
@@ -40,9 +49,22 @@ const ESTADO_BG: Record<string, string> = {
   reagendada: "bg-[var(--muted)] border-l-[var(--muted-foreground)] text-[var(--muted-foreground)]",
 };
 
-export default function AgendaCalendar({ citas, mondayISO }: { citas: Cita[]; mondayISO: string }) {
+export default function AgendaCalendar({
+  citas,
+  mondayYmd,
+  todayYmd,
+}: {
+  citas: Cita[];
+  mondayYmd: string;   // "YYYY-MM-DD" del lunes de la semana mostrada (en TZ MX)
+  todayYmd: string;    // "YYYY-MM-DD" de hoy en TZ MX
+}) {
   const router = useRouter();
-  const monday = new Date(mondayISO);
+
+  // Construir 'monday' como medianoche local del cliente para que getDate(),
+  // toDateString() y demas reflejen el dia correcto sin saltos de TZ.
+  const [my, mm, md] = mondayYmd.split("-").map(Number);
+  const monday = new Date(my, mm - 1, md);
+
   const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
   const [showCitaModal, setShowCitaModal] = useState(false);
   const [activeCita, setActiveCita] = useState<Cita | null>(null);
@@ -61,12 +83,12 @@ export default function AgendaCalendar({ citas, mondayISO }: { citas: Cita[]; mo
     return d;
   });
 
-  // Indexar citas por día (yyyy-mm-dd)
+  // Indexar citas por dia usando YMD LOCAL (no UTC) para que un cita de
+  // las 9pm MX no se brinque al dia siguiente UTC.
   const citasPorDia = useMemo(() => {
     const map = new Map<string, Cita[]>();
     for (const c of citas) {
-      const dt = new Date(c.inicio);
-      const key = dt.toISOString().slice(0, 10);
+      const key = localYmd(new Date(c.inicio));
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(c);
     }
@@ -76,7 +98,7 @@ export default function AgendaCalendar({ citas, mondayISO }: { citas: Cita[]; mo
   function navWeek(diff: number) {
     const d = new Date(monday);
     d.setDate(d.getDate() + diff * 7);
-    router.push(`/agenda?semana=${d.toISOString().slice(0, 10)}`);
+    router.push(`/agenda?semana=${localYmd(d)}`);
   }
 
   function goToday() {
@@ -104,7 +126,6 @@ export default function AgendaCalendar({ citas, mondayISO }: { citas: Cita[]; mo
 
   const labelMes = monday.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
   const labelRango = `${monday.getDate()} - ${dias[6].getDate()} ${dias[6].toLocaleDateString("es-MX", { month: "short" })}`;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
 
   return (
     <div className="max-w-full">
@@ -132,7 +153,7 @@ export default function AgendaCalendar({ citas, mondayISO }: { citas: Cita[]; mo
             <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-[var(--border)]">
               <div className="bg-[var(--card)]" />
               {dias.map((d, i) => {
-                const esHoy = d.toDateString() === today.toDateString();
+                const esHoy = localYmd(d) === todayYmd;
                 return (
                   <div key={i} className={`text-center py-3 border-l border-[var(--border)] ${esHoy ? "bg-[var(--secondary)]/20" : "bg-[var(--card)]"}`}>
                     <p className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)]">{DAYS[i]}</p>
@@ -155,9 +176,9 @@ export default function AgendaCalendar({ citas, mondayISO }: { citas: Cita[]; mo
 
               {/* 7 columnas de días */}
               {dias.map((d, dayIdx) => {
-                const key = d.toISOString().slice(0, 10);
+                const key = localYmd(d);
                 const citasDelDia = citasPorDia.get(key) ?? [];
-                const esHoy = d.toDateString() === today.toDateString();
+                const esHoy = localYmd(d) === todayYmd;
                 return (
                   <div key={dayIdx} className={`relative border-l border-[var(--border)] ${esHoy ? "bg-[var(--secondary)]/5" : ""}`}>
                     {slots.map((s, slotIdx) => (

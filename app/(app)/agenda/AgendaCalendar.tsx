@@ -113,12 +113,20 @@ export default function AgendaCalendar({
   // Calcular posición top y altura de cada cita en píxeles
   function getCitaStyle(c: Cita) {
     const inicio = new Date(c.inicio);
-    const fin = new Date(c.fin);
+    const fin = c.fin ? new Date(c.fin) : null;
     const minDesdeInicio = (inicio.getHours() - HOUR_START) * 60 + inicio.getMinutes();
-    const duracionMin = (fin.getTime() - inicio.getTime()) / 60000;
+    // Defensa: si fin es null, NaN, o anterior al inicio, fallback a la
+    // duracion del servicio o 30 min. Sin esto el height sale negativo y
+    // la cita se renderiza con altura 0 (invisible).
+    let duracionMin: number;
+    if (fin && !Number.isNaN(fin.getTime()) && fin.getTime() > inicio.getTime()) {
+      duracionMin = (fin.getTime() - inicio.getTime()) / 60000;
+    } else {
+      duracionMin = c.servicio?.duracion_min ?? 30;
+    }
     return {
       top: `${(minDesdeInicio / SLOT_MIN) * ROW_HEIGHT}px`,
-      height: `${(duracionMin / SLOT_MIN) * ROW_HEIGHT - 2}px`,
+      height: `${Math.max(20, (duracionMin / SLOT_MIN) * ROW_HEIGHT - 2)}px`,
     };
   }
 

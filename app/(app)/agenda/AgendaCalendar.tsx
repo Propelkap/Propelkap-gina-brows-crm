@@ -230,7 +230,9 @@ export default function AgendaCalendar({
         <Legend label="Tentativa" color="bg-[var(--warning)]" />
         <Legend label="Completada" color="bg-[var(--sage-deep)]" />
         <Legend label="No asistió" color="bg-[var(--destructive)]" />
-        <span className="ml-auto">Click en hueco vacío para crear cita · click en cita para ver detalle</span>
+        <span className="ml-auto">
+          {citas.length} cita{citas.length !== 1 ? "s" : ""} esta semana · click en hueco para crear · click en cita para ver detalle
+        </span>
       </div>
 
       {/* Modal de nueva cita */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Camera, Upload, X } from "lucide-react";
+import { Camera, Upload, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -22,6 +22,7 @@ export default function FotosClienta({ clienteId, fotos: initialFotos }: { clien
   const [tipo, setTipo] = useState("antes");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Cargar URLs firmadas al montar
@@ -51,6 +52,22 @@ export default function FotosClienta({ clienteId, fotos: initialFotos }: { clien
       return;
     }
     if (inputRef.current) inputRef.current.value = "";
+    router.refresh();
+  }
+
+  async function deleteFoto(id: string) {
+    if (!confirm("¿Eliminar esta foto? No se puede recuperar.")) return;
+    setDeletingId(id);
+    setError(null);
+    const res = await fetch(`/api/fotos/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setError(j.error || "No pude eliminar la foto");
+      setDeletingId(null);
+      return;
+    }
+    setFotos((prev) => prev.filter((f) => f.id !== id));
+    setDeletingId(null);
     router.refresh();
   }
 
@@ -97,6 +114,16 @@ export default function FotosClienta({ clienteId, fotos: initialFotos }: { clien
               <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-[var(--foreground)]/80 text-[var(--background)] text-xs font-medium capitalize">
                 {f.tipo}
               </div>
+              <button
+                type="button"
+                onClick={() => deleteFoto(f.id)}
+                disabled={deletingId === f.id}
+                title="Eliminar foto"
+                aria-label="Eliminar foto"
+                className="absolute top-2 right-2 p-1.5 rounded-full bg-[var(--foreground)]/80 text-[var(--background)] hover:bg-[var(--destructive)] transition-colors disabled:opacity-50 disabled:cursor-wait"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           ))}
         </div>

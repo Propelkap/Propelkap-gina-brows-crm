@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Phone, Mail, Calendar, Cake, AlertTriangle, Heart, MessageCircle } from "lucide-react";
+import { ChevronLeft, Phone, Mail, Calendar, Cake, AlertTriangle, Heart, MessageCircle, FileText } from "lucide-react";
 import FotosClienta from "../../_components/FotosClienta";
 import GenerarConsentimientoBtn from "../../_components/GenerarConsentimientoBtn";
 import CitasHistorialClient from "./CitasHistorialClient";
@@ -178,6 +178,7 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
                   <th className="text-left px-4 py-2.5 font-medium">Tipo</th>
                   <th className="text-left px-3 py-2.5 font-medium">Estado</th>
                   <th className="text-left px-4 py-2.5 font-medium">Firmado</th>
+                  <th className="text-right px-4 py-2.5 font-medium">PDF</th>
                 </tr>
               </thead>
               <tbody>
@@ -192,6 +193,22 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-sm text-[var(--muted-foreground)]">{c.firmado_at ? fmtDate(c.firmado_at) : "—"}</td>
+                    <td className="px-4 py-2.5 text-sm text-right">
+                      {c.pdf_path ? (
+                        <a
+                          href={`/api/consentimientos/${c.id}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-[var(--primary)] hover:underline font-medium"
+                          title="Abrir PDF firmado"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          Ver PDF
+                        </a>
+                      ) : (
+                        <span className="text-[var(--muted-foreground)]">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

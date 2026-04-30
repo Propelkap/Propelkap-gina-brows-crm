@@ -76,17 +76,26 @@ export default function CobrarCita({ citaId }: { citaId: string }) {
   async function cargar() {
     setLoading(true);
     setError(null);
-    const res = await fetch(`/api/citas/${citaId}/pagos`);
-    const j = await res.json();
-    if (!res.ok) {
-      setError(j.error || "No pude cargar pagos");
-      setLoading(false);
-      return;
+    try {
+      const res = await fetch(`/api/citas/${citaId}/pagos`, { cache: "no-store" });
+      const text = await res.text();
+      let j: any;
+      try { j = JSON.parse(text); } catch {
+        setError(`Respuesta no-JSON (status ${res.status}): ${text.slice(0, 120)}`);
+        setLoading(false);
+        return;
+      }
+      if (!res.ok) {
+        setError(j.error || `HTTP ${res.status}`);
+        setLoading(false);
+        return;
+      }
+      setPagos(j.pagos ?? []);
+      setSaldo(j.saldo);
+      if (j.saldo && j.saldo.saldo_mxn > 0) setMonto(String(j.saldo.saldo_mxn));
+    } catch (e) {
+      setError(`Network error: ${e instanceof Error ? e.message : String(e)}`);
     }
-    setPagos(j.pagos ?? []);
-    setSaldo(j.saldo);
-    // Pre-cargar el monto pendiente
-    if (j.saldo && j.saldo.saldo_mxn > 0) setMonto(String(j.saldo.saldo_mxn));
     setLoading(false);
   }
 
@@ -147,10 +156,28 @@ export default function CobrarCita({ citaId }: { citaId: string }) {
   }, [saldo]);
 
   if (loading) {
-    return <div className="text-xs text-[var(--muted-foreground)] py-3">Cargando pagos…</div>;
+    return (
+      <div className="bg-[var(--card)] rounded-xl p-3 border border-[var(--border)] mt-2">
+        <p className="eyebrow !text-[var(--primary-dark)]">Cobro</p>
+        <p className="text-xs text-[var(--muted-foreground)] py-3">Cargando pagos…</p>
+      </div>
+    );
   }
   if (!saldo) {
-    return <div className="text-xs text-[var(--destructive)] py-3">No pude cargar el saldo de la cita.</div>;
+    return (
+      <div className="bg-[var(--card)] rounded-xl p-3 border border-[var(--destructive)]/40 mt-2">
+        <p className="eyebrow !text-[var(--destructive)]">Cobro · Error</p>
+        <div className="flex items-start gap-1.5 text-xs text-[var(--destructive)] py-2">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>{error || "No pude cargar el saldo de la cita."}</span>
+        </div>
+        <button onClick={cargar} className="btn-ghost !text-xs mt-1">Reintentar</button>
+        <p className="text-[10px] text-[var(--muted-foreground)] mt-2">
+          Si el error persiste: verifica que la migration 008 se haya aplicado en Supabase
+          (vista <code>v_citas_saldo</code>) y que estés logueada.
+        </p>
+      </div>
+    );
   }
 
   const saldoPendiente = saldo.saldo_mxn > 0;

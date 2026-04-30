@@ -8,6 +8,7 @@ import NuevaCitaModal from "../_components/NuevaCitaModal";
 import GenerarConsentimientoBtn from "../_components/GenerarConsentimientoBtn";
 import CheckoutCita from "../_components/CheckoutCita";
 import CobrarCita from "../_components/CobrarCita";
+import { localYmd as localYmdShared, buildLocalDate } from "@/lib/date-helpers";
 
 type Cita = {
   id: string;
@@ -30,14 +31,8 @@ const SLOT_MIN = 30;   // bloques de 30 min
 const ROW_HEIGHT = 32; // px por slot
 const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-/** YMD en TZ local del cliente. Usar en vez de toISOString() para evitar
- *  brincar de dia con la diferencia UTC. */
-function localYmd(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
-}
+// Reexport para mantener API local del archivo; la implementacion vive en lib/date-helpers
+const localYmd = localYmdShared;
 
 const fmtMxn = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
@@ -285,9 +280,15 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
   async function saveEdits() {
     setSaving(true);
     setEditError(null);
-    const inicioISO = new Date(`${editForm.fecha}T${editForm.hora}:00`).toISOString();
+    const inicioDate = buildLocalDate(editForm.fecha, editForm.hora);
+    if (!inicioDate) {
+      setSaving(false);
+      setEditError(`Fecha u hora inválida ("${editForm.fecha}" / "${editForm.hora}").`);
+      return;
+    }
+    const inicioISO = inicioDate.toISOString();
     const duracionMin = cita.servicio?.duracion_min ?? 60;
-    const finISO = new Date(new Date(inicioISO).getTime() + duracionMin * 60_000).toISOString();
+    const finISO = new Date(inicioDate.getTime() + duracionMin * 60_000).toISOString();
     const res = await fetch(`/api/citas/${cita.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

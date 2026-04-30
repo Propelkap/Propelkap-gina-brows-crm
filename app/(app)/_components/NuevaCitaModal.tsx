@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Search, Calendar, User, Sparkles, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { localYmd, localHm, buildLocalDate } from "@/lib/date-helpers";
 
 type Cliente = { id: string; nombre: string; apellido: string | null; whatsapp: string | null };
 type Servicio = { id: string; nombre: string; precio_mxn: number; duracion_min: number; sesiones_paquete?: number };
@@ -11,20 +12,6 @@ type SesionInfo = { sesion_numero: number; sesiones_totales: number; precio_mxn:
 
 const fmtMxn = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
-
-/** YMD en TZ local (no UTC). Evita el shift al dia siguiente cuando son las
- *  noches en MX (UTC-6) y toISOString() salta de dia. */
-function localYmd(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
-}
-
-/** HH:MM en hora local. */
-function localHm(d: Date): string {
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
 
 export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaInicial }: { onClose: () => void; clientePreseleccionado?: Cliente; fechaInicial?: Date | null }) {
   const router = useRouter();
@@ -102,7 +89,8 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
 
   const finCalculado = useMemo(() => {
     if (!fecha || !hora || !servicio) return null;
-    const inicio = new Date(`${fecha}T${hora}:00`);
+    const inicio = buildLocalDate(fecha, hora);
+    if (!inicio) return null;
     const fin = new Date(inicio.getTime() + servicio.duracion_min * 60_000);
     return fin.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
   }, [fecha, hora, servicio]);
@@ -117,9 +105,14 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
       setError(`Falta: ${faltantes.join(", ")}`);
       return;
     }
+    const inicioDate = buildLocalDate(fecha, hora);
+    if (!inicioDate) {
+      setError(`Hora inválida: "${hora}". Usa formato HH:MM (ej. 14:30).`);
+      return;
+    }
     setSubmitting(true);
     setError(null);
-    const inicio = new Date(`${fecha}T${hora}:00`).toISOString();
+    const inicio = inicioDate.toISOString();
     const res = await fetch("/api/citas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

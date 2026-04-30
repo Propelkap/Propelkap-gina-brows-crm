@@ -81,16 +81,63 @@ export default function AgendaCalendar({
     return d;
   });
 
-  // Indexar citas por dia usando YMD LOCAL (no UTC) para que un cita de
-  // las 9pm MX no se brinque al dia siguiente UTC.
-  const citasPorDia = useMemo(() => {
-    const map = new Map<string, Cita[]>();
+  // Indexar citas por dia + asignar lanes horizontales para citas que se
+  // solapan en tiempo. Sin lanes, 2 citas a la misma hora se pintarian
+  // exactamente en la misma posicion absoluta (left-1 right-1) y la 2da
+  // taparia a la 1era. Algoritmo: clusters por overlap, greedy-fit por lane.
+  const { citasPorDia, lanesPorCita } = useMemo(() => {
+    const porDia = new Map<string, Cita[]>();
     for (const c of citas) {
       const key = localYmd(new Date(c.inicio));
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(c);
+      if (!porDia.has(key)) porDia.set(key, []);
+      porDia.get(key)!.push(c);
     }
-    return map;
+    const lanes = new Map<string, { lane: number; totalLanes: number }>();
+    function finMs(c: Cita): number {
+      const i = new Date(c.inicio).getTime();
+      if (c.fin) {
+        const f = new Date(c.fin).getTime();
+        if (!Number.isNaN(f) && f > i) return f;
+      }
+      return i + (c.servicio?.duracion_min ?? 30) * 60_000;
+    }
+    for (const [, citasDia] of porDia) {
+      const sorted = [...citasDia].sort(
+        (a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime()
+      );
+      // Clusters: grupos de citas que se solapan transitivamente
+      const clusters: Cita[][] = [];
+      for (const c of sorted) {
+        const ini = new Date(c.inicio).getTime();
+        const last = clusters[clusters.length - 1];
+        if (!last) {
+          clusters.push([c]);
+          continue;
+        }
+        const lastEnd = Math.max(...last.map(finMs));
+        if (ini < lastEnd) last.push(c);
+        else clusters.push([c]);
+      }
+      // Greedy-fit lanes dentro de cada cluster
+      for (const cluster of clusters) {
+        const laneEnds: number[] = [];
+        const local = new Map<string, number>();
+        for (const c of cluster) {
+          const ini = new Date(c.inicio).getTime();
+          const f = finMs(c);
+          let assigned = -1;
+          for (let i = 0; i < laneEnds.length; i++) {
+            if (laneEnds[i] <= ini) { laneEnds[i] = f; assigned = i; break; }
+          }
+          if (assigned === -1) { laneEnds.push(f); assigned = laneEnds.length - 1; }
+          local.set(c.id, assigned);
+        }
+        for (const c of cluster) {
+          lanes.set(c.id, { lane: local.get(c.id)!, totalLanes: laneEnds.length });
+        }
+      }
+    }
+    return { citasPorDia: porDia, lanesPorCita: lanes };
   }, [citas]);
 
   function navWeek(diff: number) {
@@ -110,8 +157,8 @@ export default function AgendaCalendar({
     setShowCitaModal(true);
   }
 
-  // Calcular posición top y altura de cada cita en píxeles
-  function getCitaStyle(c: Cita) {
+  // Calcular posición top y altura de cada cita en píxeles + lane horizontal
+  function getCitaStyle(c: Cita, lane = 0, totalLanes = 1) {
     const inicio = new Date(c.inicio);
     const fin = c.fin ? new Date(c.fin) : null;
     const minDesdeInicio = (inicio.getHours() - HOUR_START) * 60 + inicio.getMinutes();
@@ -124,9 +171,15 @@ export default function AgendaCalendar({
     } else {
       duracionMin = c.servicio?.duracion_min ?? 30;
     }
+    // Layout horizontal: si hay solapamiento (totalLanes > 1), divide el
+    // ancho del dia en N sub-columnas y posiciona cada cita en su lane.
+    const widthPct = 100 / totalLanes;
+    const leftPct = lane * widthPct;
     return {
       top: `${(minDesdeInicio / SLOT_MIN) * ROW_HEIGHT}px`,
       height: `${Math.max(20, (duracionMin / SLOT_MIN) * ROW_HEIGHT - 2)}px`,
+      left: `calc(${leftPct}% + 4px)`,
+      width: `calc(${widthPct}% - 8px)`,
     };
   }
 
@@ -195,9 +248,12 @@ export default function AgendaCalendar({
                         style={{ height: ROW_HEIGHT }}
                       />
                     ))}
-                    {/* Citas posicionadas absolutas */}
+                    {/* Citas posicionadas absolutas — left/width vienen de
+                         lanesPorCita para que las citas que se solapan en
+                         tiempo se repartan en sub-columnas paralelas. */}
                     {citasDelDia.map((c) => {
-                      const style = getCitaStyle(c);
+                      const li = lanesPorCita.get(c.id);
+                      const style = getCitaStyle(c, li?.lane ?? 0, li?.totalLanes ?? 1);
                       const colors = ESTADO_BG[c.estado] ?? ESTADO_BG.tentativa;
                       const inicio = new Date(c.inicio);
                       const hora = inicio.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
@@ -205,7 +261,7 @@ export default function AgendaCalendar({
                         <button
                           key={c.id}
                           onClick={() => setActiveCita(c)}
-                          className={`absolute left-1 right-1 rounded-md border-l-4 px-2 py-1 text-[11px] leading-tight overflow-hidden text-left hover:shadow-md transition-shadow ${colors}`}
+                          className={`absolute rounded-md border-l-4 px-2 py-1 text-[11px] leading-tight overflow-hidden text-left hover:shadow-md transition-shadow ${colors}`}
                           style={style}
                         >
                           <div className="font-semibold truncate">{c.cliente?.nombre} {c.cliente?.apellido}</div>

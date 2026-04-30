@@ -92,8 +92,13 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
   }, [fecha, hora, servicio]);
 
   async function submit() {
-    if (!cliente || !servicio || !fecha || !hora) {
-      setError("Completa cliente, servicio y fecha/hora");
+    const faltantes: string[] = [];
+    if (!cliente) faltantes.push("clienta");
+    if (!servicio) faltantes.push("servicio");
+    if (!fecha) faltantes.push("fecha");
+    if (!hora) faltantes.push("hora");
+    if (faltantes.length) {
+      setError(`Falta: ${faltantes.join(", ")}`);
       return;
     }
     setSubmitting(true);
@@ -246,9 +251,21 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
 
           {error && <div className="bg-[hsl(0_84%_60%_/_0.1)] border border-[var(--destructive)] rounded-xl p-3 text-sm text-[var(--destructive)]">{error}</div>}
 
+          {/* Indicador visible de qué falta para diagnosticar bugs UX */}
+          {(!cliente || !servicio || !fecha || !hora) && !error && (
+            <p className="text-xs text-[var(--muted-foreground)] -mt-2">
+              Falta: {[
+                !cliente && "clienta",
+                !servicio && "servicio",
+                !fecha && "fecha",
+                !hora && "hora",
+              ].filter(Boolean).join(" · ")}
+            </p>
+          )}
+
           <div className="flex gap-2 pt-2">
             <button onClick={onClose} className="btn-ghost flex-1 justify-center">Cancelar</button>
-            <button onClick={submit} disabled={submitting || !cliente || !servicio || !fecha || !hora} className="btn-primary flex-1 justify-center">
+            <button onClick={submit} disabled={submitting} className="btn-primary flex-1 justify-center">
               {submitting ? "Creando…" : "Agendar cita"}
             </button>
           </div>

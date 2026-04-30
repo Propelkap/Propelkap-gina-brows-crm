@@ -97,7 +97,7 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
     if (!servicio) faltantes.push("servicio");
     if (!fecha) faltantes.push("fecha");
     if (!hora) faltantes.push("hora");
-    if (faltantes.length) {
+    if (faltantes.length || !cliente || !servicio) {
       setError(`Falta: ${faltantes.join(", ")}`);
       return;
     }

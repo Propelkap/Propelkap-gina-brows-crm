@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Users, Heart, Star, AlertCircle } from "lucide-react";
+import { Search, Users, Heart, Star, AlertCircle, Tag, X } from "lucide-react";
 
 type Cliente = {
   id: string;
@@ -15,6 +15,7 @@ type Cliente = {
   total_gastado_mxn: number | null;
   ultima_cita_fecha: string | null;
   proxima_cita_fecha: string | null;
+  tags: string[] | null;
 };
 
 const fmtMxn = (n: number | null) =>
@@ -46,6 +47,7 @@ const ESTADO_BADGES: Record<string, string> = {
 export default function ClientesClient({ clientes }: { clientes: Cliente[] }) {
   const [search, setSearch] = useState("");
   const [filtro, setFiltro] = useState("todas");
+  const [tagsActivos, setTagsActivos] = useState<string[]>([]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { todas: clientes.length };
@@ -53,17 +55,47 @@ export default function ClientesClient({ clientes }: { clientes: Cliente[] }) {
     return c;
   }, [clientes]);
 
+  // Etiquetas unicas con conteo (top 30, ordenadas por uso)
+  const tagsCatalogo = useMemo(() => {
+    const counter = new Map<string, number>();
+    for (const cl of clientes) {
+      for (const t of cl.tags ?? []) {
+        if (!t) continue;
+        counter.set(t, (counter.get(t) ?? 0) + 1);
+      }
+    }
+    return [...counter.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 30)
+      .map(([tag, n]) => ({ tag, n }));
+  }, [clientes]);
+
   const filtradas = useMemo(() => {
     let result = filtro === "todas" ? clientes : clientes.filter((c) => c.estado === filtro);
+    if (tagsActivos.length > 0) {
+      result = result.filter((c) => {
+        const ts = c.tags ?? [];
+        return tagsActivos.every((t) => ts.includes(t));
+      });
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((c) => {
         const full = `${c.nombre} ${c.apellido ?? ""}`.toLowerCase();
-        return full.includes(q) || (c.whatsapp ?? "").includes(q) || (c.email ?? "").toLowerCase().includes(q);
+        return (
+          full.includes(q) ||
+          (c.whatsapp ?? "").includes(q) ||
+          (c.email ?? "").toLowerCase().includes(q) ||
+          (c.tags ?? []).some((t) => t.toLowerCase().includes(q))
+        );
       });
     }
     return result;
-  }, [clientes, search, filtro]);
+  }, [clientes, search, filtro, tagsActivos]);
+
+  function toggleTag(t: string) {
+    setTagsActivos((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  }
 
   return (
     <div className="max-w-6xl">
@@ -85,8 +117,8 @@ export default function ClientesClient({ clientes }: { clientes: Cliente[] }) {
         />
       </div>
 
-      {/* Filtros pill */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      {/* Filtros pill por estado */}
+      <div className="flex flex-wrap gap-2 mb-3">
         {ESTADOS.map((e) => {
           const isActive = filtro === e.id;
           const count = counts[e.id] ?? 0;
@@ -107,6 +139,44 @@ export default function ClientesClient({ clientes }: { clientes: Cliente[] }) {
           );
         })}
       </div>
+
+      {/* Filtros por etiqueta — solo aparecen si hay tags en la base */}
+      {tagsCatalogo.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2 text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-medium">
+            <Tag className="w-3 h-3" />
+            Etiquetas
+            {tagsActivos.length > 0 && (
+              <button
+                onClick={() => setTagsActivos([])}
+                className="ml-2 text-[10px] text-[var(--primary-dark)] hover:underline normal-case tracking-normal"
+              >
+                limpiar ({tagsActivos.length})
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {tagsCatalogo.map(({ tag, n }) => {
+              const active = tagsActivos.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                    active
+                      ? "bg-[var(--primary-dark)] text-[var(--primary-foreground)] border-[var(--primary-dark)]"
+                      : "bg-white text-[var(--muted-foreground)] border-[var(--border)] hover:border-[var(--primary)]/60 hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  {active && <X className="w-2.5 h-2.5" />}
+                  {tag}
+                  <span className="opacity-60 text-[10px]">{n}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Tabla */}
       <div className="card !p-0 overflow-hidden">
@@ -130,6 +200,21 @@ export default function ClientesClient({ clientes }: { clientes: Cliente[] }) {
                     <Link href={`/clientas/${c.id}`} className="block">
                       <div className="font-medium text-[var(--foreground)]">{c.nombre} {c.apellido}</div>
                       {c.email && <div className="text-xs text-[var(--muted-foreground)]">{c.email}</div>}
+                      {c.tags && c.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {c.tags.slice(0, 4).map((t) => (
+                            <span
+                              key={t}
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--secondary)]/30 text-[var(--primary-dark)]"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                          {c.tags.length > 4 && (
+                            <span className="text-[10px] text-[var(--muted-foreground)]">+{c.tags.length - 4}</span>
+                          )}
+                        </div>
+                      )}
                     </Link>
                   </td>
                   <td className="px-3 py-3 text-sm font-mono text-[var(--muted-foreground)]">{c.whatsapp ?? "—"}</td>

@@ -5,6 +5,7 @@ import { Save, Sparkles, Check, X, AlertCircle, Calendar } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import FeedbackBot from "./FeedbackBot";
+import ServiciosEditor from "./ServiciosEditor";
 
 type CalendarToken = { created_at: string; expires_at: string; scope: string | null } | null | undefined;
 
@@ -114,36 +115,7 @@ export default function ConfiguracionClient({
       </Section>
 
       <Section title={`Catálogo de servicios (${servicios.length})`}>
-        <div className="card !p-0 overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[var(--border)] text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
-                <th className="text-left px-4 py-2.5 font-medium">Servicio</th>
-                <th className="text-left px-3 py-2.5 font-medium">Categoría</th>
-                <th className="text-right px-3 py-2.5 font-medium">Precio</th>
-                <th className="text-right px-3 py-2.5 font-medium">Duración</th>
-                <th className="text-right px-4 py-2.5 font-medium">Retoque</th>
-              </tr>
-            </thead>
-            <tbody>
-              {servicios.map((s) => (
-                <tr key={s.id} className="border-b border-[var(--border)] last:border-0">
-                  <td className="px-4 py-2.5 text-sm font-medium">{s.nombre}</td>
-                  <td className="px-3 py-2.5 text-sm text-[var(--muted-foreground)]">{s.categoria}</td>
-                  <td className="px-3 py-2.5 text-sm text-right font-mono">{fmtMxn(Number(s.precio_mxn))}</td>
-                  <td className="px-3 py-2.5 text-sm text-right">{s.duracion_min} min</td>
-                  <td className="px-4 py-2.5 text-sm text-right text-[var(--muted-foreground)]">
-                    {s.retoque_dias_obligatorio ? `${s.retoque_dias_obligatorio}d` : "—"}
-                    {s.retoque_anual_dias ? ` + ${s.retoque_anual_dias}d` : ""}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="text-xs text-[var(--muted-foreground)] mt-2">
-          La edición inline de servicios llega en próximo despliegue. Por ahora editable desde Supabase directo.
-        </p>
+        <ServiciosEditor servicios={servicios} />
       </Section>
     </div>
   );

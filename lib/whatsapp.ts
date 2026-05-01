@@ -64,9 +64,18 @@ export async function sendWhatsApp(sb: SupabaseClient, opts: SendOpts): Promise<
   const toAddr = toE164ToWa(opts.to);
   const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 
+  // Status callback URL — Twilio nos pingea cada cambio de estado del
+  // mensaje (sent, delivered, read, undelivered, failed). El endpoint
+  // actualiza comunicaciones.estado_entrega en tiempo real.
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    ?? "https://gina-brows-crm.vercel.app";
+  const statusCallback = `${baseUrl}/api/webhooks/twilio-status`;
+
   try {
     const messageOpts: Record<string, unknown> = {
       to: toAddr,
+      statusCallback,
     };
     if (messagingServiceSid) {
       messageOpts.messagingServiceSid = messagingServiceSid;

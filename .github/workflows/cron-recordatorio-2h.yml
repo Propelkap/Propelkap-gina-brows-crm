@@ -1,0 +1,34 @@
+name: Cron · Recordatorio 2h antes de cita
+
+# Vercel Hobby no permite crons sub-daily, asi que GitHub Actions hace
+# el ping cada hora exacta al endpoint /api/cron/recordatorio-2h. El
+# endpoint mismo verifica el secret y filtra duplicados, asi que aunque
+# se dispare extra (ej. retry de GH) no pasa nada.
+
+on:
+  schedule:
+    # Cada hora exacta UTC. (GitHub Actions cron en UTC, no en MX TZ.)
+    - cron: '0 * * * *'
+  workflow_dispatch: {} # permite disparar manual desde la pestana Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Hit cron endpoint
+        run: |
+          set -e
+          response=$(curl -sS -w "\n%{http_code}" -X GET \
+            "https://gina-brows-crm.vercel.app/api/cron/recordatorio-2h" \
+            -H "Authorization: Bearer $CRON_SECRET")
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n 1)
+          echo "HTTP $status"
+          echo "$body"
+          if [ "$status" -ne 200 ]; then
+            echo "::error::cron endpoint failed with $status"
+            exit 1
+          fi
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

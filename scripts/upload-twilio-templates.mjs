@@ -47,6 +47,9 @@ const baseHeaders = { Authorization: auth };
 
 // =========================================================================
 // Templates a crear — orden = prioridad de uso
+// IMPORTANTE: Meta requiere `variables` con un ejemplo concreto por cada
+// placeholder {{N}} del body. Sin examples, rechaza con
+// "component of type BODY is missing expected field(s) (example)".
 // =========================================================================
 const TEMPLATES = [
   {
@@ -54,48 +57,58 @@ const TEMPLATES = [
     category: "UTILITY",
     language: "es_MX",
     body: "Hello, hello {{1}} 🌿 Te recordamos tu cita mañana a las {{2}} para {{3}} en Gina Brows. Si necesitas reagendar, contéstanos a este mensaje 💜",
+    variables: { "1": "María", "2": "10:00 AM", "3": "microblading" },
   },
   {
     friendly_name: "recordatorio_cita_2h",
     category: "UTILITY",
     language: "es_MX",
-    body: "{{1}}, te esperamos en 2 horas para tu cita de {{2}} 🌿 Recuerda llegar 5 min antes. Cualquier cosa, contéstanos por aquí.",
+    // Meta rechaza si la variable esta al inicio o al final del body.
+    // "Hola {{1}}, ..." mete texto antes del primer placeholder.
+    body: "Hola {{1}}, te esperamos en 2 horas para tu cita de {{2}} en Gina Brows 🌿 Recuerda llegar 5 min antes. Cualquier cosa, contéstanos por aquí.",
+    variables: { "1": "María", "2": "microblading" },
   },
   {
     friendly_name: "confirmacion_cita_link_pago",
     category: "UTILITY",
     language: "es_MX",
     body: "Hello, hello {{1}} 🌿 Para apartar tu cita de {{2}} el {{3}}, necesito el anticipo del 50% (${{4}} MXN). Aquí el link de pago seguro: {{5}}\n\nEn cuanto pagues, queda apartada y te llega confirmación 💜",
+    variables: { "1": "María", "2": "microblading", "3": "lunes 5 de mayo", "4": "1500", "5": "https://pago.gina/abc123" },
   },
   {
     friendly_name: "aviso_retoque_60d",
     category: "MARKETING",
     language: "es_MX",
     body: "Hello, hello {{1}} 🌿 Pasaron casi 60 días desde tu microblading. Es momento del retoque para que tus cejitas duren más y queden hermosas. ¿Te aparto cita esta semana?",
+    variables: { "1": "María" },
   },
   {
     friendly_name: "aviso_retoque_anual",
     category: "MARKETING",
     language: "es_MX",
     body: "Hello, hello {{1}} 🌿 Ya cumplió un año tu microblading. Es momento del retoque anual para mantener tus cejitas en su mejor versión. Si lo agendas este mes, mantienes el precio especial. ¿Te aparto?",
+    variables: { "1": "María" },
   },
   {
     friendly_name: "cumpleanos_cupon",
     category: "MARKETING",
     language: "es_MX",
     body: "Hello, hello {{1}} 🎂 ¡Feliz cumpleaños! De parte de Gina Brows te regalamos un diseño de ceja gratis para estrenar el día. Válido los próximos 30 días. ✨",
+    variables: { "1": "María" },
   },
   {
     friendly_name: "reactivacion_dormida",
     category: "MARKETING",
     language: "es_MX",
     body: "Hello, hello {{1}} 🌿 Te extrañamos por aquí en Gina Brows. Quería invitarte con un detallito: tu próxima cita la pasas con diseño de ceja gratis 💜 ¿Cuándo te apartamos espacio?",
+    variables: { "1": "María" },
   },
   {
     friendly_name: "pedir_resena_google",
     category: "UTILITY",
     language: "es_MX",
     body: "Hello, hello {{1}} 🌿 ¿Te gustaron tus cejitas? Si te animas a dejarme una reseña en Google, me ayudas muchísimo: {{2}} 💜",
+    variables: { "1": "María", "2": "https://g.page/r/abc/review" },
   },
 ];
 
@@ -118,14 +131,16 @@ async function listExisting() {
 }
 
 async function createContent(t) {
+  const body = {
+    friendly_name: t.friendly_name,
+    language: t.language,
+    types: { "twilio/text": { body: t.body } },
+  };
+  if (t.variables) body.variables = t.variables;
   const res = await fetch("https://content.twilio.com/v1/Content", {
     method: "POST",
     headers: { ...baseHeaders, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      friendly_name: t.friendly_name,
-      language: t.language,
-      types: { "twilio/text": { body: t.body } },
-    }),
+    body: JSON.stringify(body),
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`Create ${t.friendly_name}: HTTP ${res.status} ${text}`);

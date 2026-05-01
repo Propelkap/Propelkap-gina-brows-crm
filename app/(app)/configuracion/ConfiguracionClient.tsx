@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import FeedbackBot from "./FeedbackBot";
 import ServiciosEditor from "./ServiciosEditor";
+import PushNotificacionesToggle from "./PushNotificacionesToggle";
 
 type CalendarToken = { created_at: string; expires_at: string; scope: string | null } | null | undefined;
 
@@ -108,6 +109,10 @@ export default function ConfiguracionClient({
       <Section title="Reglas operativas">
         <Field label="% de anticipo por defecto" value={String(data.anticipo_porcentaje_default)} onChange={(v) => setData({ ...data, anticipo_porcentaje_default: parseInt(v) || 50 })} />
         <Field label="Días para considerar 'dormida'" value={String(data.dias_dormida)} onChange={(v) => setData({ ...data, dias_dormida: parseInt(v) || 180 })} />
+      </Section>
+
+      <Section title="Notificaciones push">
+        <PushNotificacionesToggle />
       </Section>
 
       <Section title="Aprendizaje del bot">

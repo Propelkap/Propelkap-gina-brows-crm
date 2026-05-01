@@ -56,7 +56,8 @@ export default function PushNotificacionesToggle() {
     })();
   }, []);
 
-  async function activar() {
+  /** Devuelve true si la activacion termino con sub guardada en server. */
+  async function activar(): Promise<boolean> {
     setBusy(true);
     setMsg(null);
     try {
@@ -68,7 +69,7 @@ export default function PushNotificacionesToggle() {
       setPermission(perm);
       if (perm !== "granted") {
         setMsg("Permiso denegado. Activa notificaciones en los ajustes del navegador.");
-        return;
+        return false;
       }
 
       const sub = await reg.pushManager.subscribe({
@@ -90,12 +91,14 @@ export default function PushNotificacionesToggle() {
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || "No pude registrar la suscripción en el servidor");
+        throw new Error(j.error || `No pude registrar (HTTP ${res.status})`);
       }
       setSubscribed(true);
       setMsg("✓ Notificaciones activadas en este dispositivo");
+      return true;
     } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
+      setMsg(`Error al activar: ${(e as Error).message}`);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -154,8 +157,9 @@ export default function PushNotificacionesToggle() {
   async function forzarResync() {
     setBusy(true);
     setMsg(null);
+    setDiag(null);
     try {
-      // 1. Borra cualquier subscription previa del browser
+      // 1. Borra cualquier subscription previa del browser y server
       const reg = await navigator.serviceWorker.getRegistration("/sw.js");
       const subPrev = await reg?.pushManager.getSubscription();
       if (subPrev) {
@@ -163,11 +167,33 @@ export default function PushNotificacionesToggle() {
         await subPrev.unsubscribe();
         await fetch(`/api/push/subscribe?endpoint=${encodeURIComponent(endpoint)}`, { method: "DELETE" });
       }
-      // 2. Crear una nueva (mismo flujo que activar)
-      await activar();
-      setMsg("✓ Re-suscripción forzada. Prueba el botón 'Mandar test' ahora.");
+      // 2. Crear una nueva. Si activar() falla, NO sobreescribir el msg de error.
+      const ok = await activar();
+      if (!ok) return; // msg ya tiene el detalle del fallo
+
+      // 3. Auto-diagnostico inmediato — confirma que el server SI tiene la sub.
+      const dRes = await fetch("/api/push/diagnose");
+      const dJson = await dRes.json();
+      const newReg = await navigator.serviceWorker.getRegistration("/sw.js");
+      const newSub = await newReg?.pushManager.getSubscription();
+      setDiag({
+        browser: {
+          sw_registered: !!newReg,
+          sub_exists: !!newSub,
+          endpoint_short: newSub?.endpoint ? newSub.endpoint.slice(0, 60) + "…" : null,
+          permission: Notification.permission,
+          vapid_public_loaded: !!VAPID_PUBLIC,
+        },
+        server: dJson,
+      });
+
+      if (dJson.subs_count > 0) {
+        setMsg(`✓ Re-suscripción exitosa. Server tiene ${dJson.subs_count} subscription(s). Prueba 'Mandar test' ahora.`);
+      } else {
+        setMsg(`⚠ Re-suscripción local OK pero el server no la registró. Revisa el JSON abajo.`);
+      }
     } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
+      setMsg(`Error en re-sync: ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }

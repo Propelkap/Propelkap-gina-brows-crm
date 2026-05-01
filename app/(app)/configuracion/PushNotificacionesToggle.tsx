@@ -27,11 +27,32 @@ export default function PushNotificacionesToggle() {
     if (!ok) return;
     setPermission(Notification.permission);
 
-    navigator.serviceWorker.getRegistration("/sw.js").then(async (reg) => {
+    (async () => {
+      const reg = await navigator.serviceWorker.getRegistration("/sw.js");
       if (!reg) return;
       const sub = await reg.pushManager.getSubscription();
       setSubscribed(!!sub);
-    });
+
+      // Auto-resync: si el browser tiene subscription pero el server no
+      // (puede haber pasado si una activacion previa fallo en el upload),
+      // re-subir silenciosamente. Idempotente: upsert por endpoint.
+      if (sub) {
+        const json = sub.toJSON();
+        try {
+          await fetch("/api/push/subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              endpoint: json.endpoint,
+              keys: json.keys,
+              user_agent: navigator.userAgent,
+            }),
+          });
+        } catch {
+          /* no fatal */
+        }
+      }
+    })();
   }, []);
 
   async function activar() {

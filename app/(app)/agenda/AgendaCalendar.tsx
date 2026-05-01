@@ -67,6 +67,12 @@ export default function AgendaCalendar({
   const [showCitaModal, setShowCitaModal] = useState(false);
   const [activeCita, setActiveCita] = useState<Cita | null>(null);
 
+  // Drag & drop: cita siendo arrastrada + slot sobre el que se hace hover
+  const [dragCitaId, setDragCitaId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ dayIdx: number; slotIdx: number } | null>(null);
+  const [dragError, setDragError] = useState<string | null>(null);
+  const [optimisticCitas, setOptimisticCitas] = useState<Map<string, { inicio: string; fin: string }>>(new Map());
+
   const slotsPorDia = ((HOUR_END - HOUR_START) * 60) / SLOT_MIN;
   const slots = Array.from({ length: slotsPorDia }, (_, i) => {
     const totalMin = HOUR_START * 60 + i * SLOT_MIN;
@@ -87,7 +93,13 @@ export default function AgendaCalendar({
   // taparia a la 1era. Algoritmo: clusters por overlap, greedy-fit por lane.
   const { citasPorDia, lanesPorCita } = useMemo(() => {
     const porDia = new Map<string, Cita[]>();
-    for (const c of citas) {
+    // Aplicar optimistic updates antes de indexar (cita arrastrada se pinta
+    // ya en su nueva ubicacion mientras el PATCH viaja al server).
+    const citasEfectivas = citas.map((c) => {
+      const o = optimisticCitas.get(c.id);
+      return o ? { ...c, inicio: o.inicio, fin: o.fin } : c;
+    });
+    for (const c of citasEfectivas) {
       const key = localYmd(new Date(c.inicio));
       if (!porDia.has(key)) porDia.set(key, []);
       porDia.get(key)!.push(c);
@@ -138,7 +150,7 @@ export default function AgendaCalendar({
       }
     }
     return { citasPorDia: porDia, lanesPorCita: lanes };
-  }, [citas]);
+  }, [citas, optimisticCitas]);
 
   function navWeek(diff: number) {
     const d = new Date(monday);
@@ -155,6 +167,55 @@ export default function AgendaCalendar({
     dt.setHours(slot.h, slot.m, 0, 0);
     setSelectedSlot(dt);
     setShowCitaModal(true);
+  }
+
+  /** Aplica el reagendado al backend + optimistic UI. */
+  async function dropCita(citaId: string, day: Date, slot: { h: number; m: number }) {
+    const cita = citas.find((c) => c.id === citaId);
+    if (!cita) return;
+    const nuevoInicio = new Date(day);
+    nuevoInicio.setHours(slot.h, slot.m, 0, 0);
+
+    // Calcular nueva duracion preservando la del original
+    const inicioOriginal = new Date(cita.inicio);
+    const finOriginal = cita.fin ? new Date(cita.fin) : null;
+    const duracionMs =
+      finOriginal && finOriginal.getTime() > inicioOriginal.getTime()
+        ? finOriginal.getTime() - inicioOriginal.getTime()
+        : (cita.servicio?.duracion_min ?? 30) * 60_000;
+    const nuevoFin = new Date(nuevoInicio.getTime() + duracionMs);
+
+    // Si la cita NO se movio, no hacer nada
+    if (Math.abs(nuevoInicio.getTime() - inicioOriginal.getTime()) < 60_000) return;
+
+    // Optimistic update
+    setOptimisticCitas((prev) => {
+      const next = new Map(prev);
+      next.set(citaId, { inicio: nuevoInicio.toISOString(), fin: nuevoFin.toISOString() });
+      return next;
+    });
+    setDragError(null);
+
+    const res = await fetch(`/api/citas/${citaId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        inicio: nuevoInicio.toISOString(),
+        fin: nuevoFin.toISOString(),
+      }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setDragError(j.error || "No pude reagendar");
+      // Rollback
+      setOptimisticCitas((prev) => {
+        const next = new Map(prev);
+        next.delete(citaId);
+        return next;
+      });
+      return;
+    }
+    router.refresh();
   }
 
   // Calcular posición top y altura de cada cita en píxeles + lane horizontal
@@ -240,14 +301,42 @@ export default function AgendaCalendar({
                 const esHoy = localYmd(d) === todayYmd;
                 return (
                   <div key={dayIdx} className={`relative border-l border-[var(--border)] ${esHoy ? "bg-[var(--secondary)]/5" : ""}`}>
-                    {slots.map((s, slotIdx) => (
-                      <button
-                        key={slotIdx}
-                        onClick={() => clickSlot(d, s)}
-                        className={`block w-full border-b border-[var(--border)] hover:bg-[var(--secondary)]/15 transition-colors ${s.m === 0 ? "" : "border-dashed"}`}
-                        style={{ height: ROW_HEIGHT }}
-                      />
-                    ))}
+                    {slots.map((s, slotIdx) => {
+                      const isDropHere =
+                        dragCitaId !== null &&
+                        dropTarget?.dayIdx === dayIdx &&
+                        dropTarget?.slotIdx === slotIdx;
+                      return (
+                        <button
+                          key={slotIdx}
+                          onClick={() => clickSlot(d, s)}
+                          onDragOver={(e) => {
+                            if (!dragCitaId) return;
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            setDropTarget({ dayIdx, slotIdx });
+                          }}
+                          onDragLeave={() => {
+                            if (dropTarget?.dayIdx === dayIdx && dropTarget?.slotIdx === slotIdx) {
+                              setDropTarget(null);
+                            }
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const id = e.dataTransfer.getData("text/plain") || dragCitaId;
+                            if (id) dropCita(id, d, s);
+                            setDragCitaId(null);
+                            setDropTarget(null);
+                          }}
+                          className={`block w-full border-b border-[var(--border)] transition-colors ${
+                            isDropHere
+                              ? "bg-[var(--primary)]/30 ring-2 ring-[var(--primary)]"
+                              : "hover:bg-[var(--secondary)]/15"
+                          } ${s.m === 0 ? "" : "border-dashed"}`}
+                          style={{ height: ROW_HEIGHT }}
+                        />
+                      );
+                    })}
                     {/* Citas posicionadas absolutas — left/width vienen de
                          lanesPorCita para que las citas que se solapan en
                          tiempo se repartan en sub-columnas paralelas. */}
@@ -257,19 +346,35 @@ export default function AgendaCalendar({
                       const colors = ESTADO_BG[c.estado] ?? ESTADO_BG.tentativa;
                       const inicio = new Date(c.inicio);
                       const hora = inicio.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+                      const isDragging = dragCitaId === c.id;
                       return (
-                        <button
+                        <div
                           key={c.id}
+                          draggable
+                          onDragStart={(e) => {
+                            setDragCitaId(c.id);
+                            e.dataTransfer.setData("text/plain", c.id);
+                            e.dataTransfer.effectAllowed = "move";
+                          }}
+                          onDragEnd={() => {
+                            setDragCitaId(null);
+                            setDropTarget(null);
+                          }}
                           onClick={() => setActiveCita(c)}
-                          className={`absolute rounded-md border-l-4 px-2 py-1 text-[11px] leading-tight overflow-hidden text-left hover:shadow-md transition-shadow ${colors}`}
+                          role="button"
+                          tabIndex={0}
+                          className={`absolute rounded-md border-l-4 px-2 py-1 text-[11px] leading-tight overflow-hidden text-left hover:shadow-md transition-all cursor-grab active:cursor-grabbing select-none ${colors} ${
+                            isDragging ? "opacity-50 ring-2 ring-[var(--primary)]" : ""
+                          }`}
                           style={style}
+                          title="Arrastra para reagendar · click para detalle"
                         >
                           <div className="font-semibold truncate">{c.cliente?.nombre} {c.cliente?.apellido}</div>
                           <div className="opacity-80 truncate">
                             {hora} · {c.servicio?.nombre}
                             {c.sesion_numero && c.sesiones_totales ? ` (${c.sesion_numero}/${c.sesiones_totales})` : ""}
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -290,6 +395,19 @@ export default function AgendaCalendar({
           {citas.length} cita{citas.length !== 1 ? "s" : ""} esta semana · click en hueco para crear · click en cita para ver detalle
         </span>
       </div>
+
+      {/* Toast de error de drag-drop */}
+      {dragError && (
+        <div className="fixed bottom-4 right-4 z-50 bg-[var(--destructive)] text-white px-4 py-2 rounded-lg shadow-lg text-sm">
+          {dragError}
+          <button
+            onClick={() => setDragError(null)}
+            className="ml-3 opacity-70 hover:opacity-100"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Modal de nueva cita */}
       {showCitaModal && (

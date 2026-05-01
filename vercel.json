@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/diario-resenas",
       "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/recordatorio-2h",
-      "schedule": "0 * * * *"
     }
   ]
 }

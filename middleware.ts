@@ -4,8 +4,13 @@ import { createServerClient } from "@supabase/ssr";
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  // Si las envs no están configuradas (build time), saltar.
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return response;
+  // Modo demo: si Supabase no está configurado, dejar pasar todo.
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return response;
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,7 +35,7 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // Rutas públicas
-  const publicPaths = ["/login", "/auth", "/api/webhooks", "/consentimiento", "/api/consentimientos"];
+  const publicPaths = ["/login", "/auth", "/api/webhooks", "/api/tenant-healthcheck"];
   const isPublic = publicPaths.some((p) => path.startsWith(p));
 
   if (!user && !isPublic) {

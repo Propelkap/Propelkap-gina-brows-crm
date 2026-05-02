@@ -6,7 +6,8 @@ import { Send, Check, AlertCircle } from "lucide-react";
 const TEMPLATES = [
   { id: "recordatorio_cita_24h", label: "Recordatorio cita 24h", category: "UTILITY" },
   { id: "recordatorio_cita_2h", label: "Recordatorio cita 2h", category: "UTILITY" },
-  { id: "confirmacion_cita_link_pago", label: "Confirmación cita + link pago", category: "UTILITY" },
+  { id: "confirmacion_cita_link_pago", label: "Confirmación cita + link pago ($500)", category: "UTILITY" },
+  { id: "confirmacion_cita_valoracion", label: "Confirmación valoración + link pago ($300)", category: "UTILITY" },
   { id: "aviso_retoque_60d", label: "Aviso retoque 60d", category: "MARKETING" },
   { id: "aviso_retoque_anual", label: "Aviso retoque anual", category: "MARKETING" },
   { id: "cumpleanos_cupon", label: "Cumpleaños + cupón", category: "MARKETING" },

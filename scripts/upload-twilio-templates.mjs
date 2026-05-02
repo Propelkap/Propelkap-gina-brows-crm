@@ -73,9 +73,19 @@ const TEMPLATES = [
     category: "UTILITY",
     language: "es_MX",
     // Copy actualizado 2026-05-02: regla real es anticipo fijo de $500
-    // (excepto valoración), no 50%. Removido "del 50%" para flexibilidad.
+    // (excepto valoración que tiene su propia template a $300).
     body: "Hello, hello {{1}} 🌿 Para apartar tu cita de {{2}} el {{3}}, necesito un anticipo de ${{4}} MXN. Aquí el link de pago seguro: {{5}}\n\nEn cuanto pagues, queda apartada y te llega confirmación 💜",
     variables: { "1": "María", "2": "microblading", "3": "lunes 5 de mayo", "4": "500", "5": "https://pago.gina/abc123" },
+  },
+  {
+    friendly_name: "confirmacion_cita_valoracion",
+    category: "UTILITY",
+    language: "es_MX",
+    // Para clientas con trabajo previo (microblading antiguo, tatuaje, etc.)
+    // Gina siempre ofrece valoración primero ($300 fijo) para definir que
+    // procedimiento aplica antes de agendar.
+    body: "Hello, hello {{1}} 🌿 Para apartar tu cita de valoración el {{2}}, necesito un anticipo de $300 MXN. Aquí el link de pago seguro: {{3}}\n\nEn la valoración revisamos tus cejitas y definimos juntas el mejor procedimiento para ti 💜",
+    variables: { "1": "María", "2": "lunes 5 de mayo a las 11:00", "3": "https://pago.gina/abc123" },
   },
   {
     friendly_name: "aviso_retoque_60d",

@@ -100,7 +100,7 @@ export async function GET(req: Request) {
 
     const { data: candidatas, error } = await sb
       .from("citas")
-      .select("id, inicio, cliente_id, cliente:clientes(id, nombre, whatsapp), servicio:servicios(nombre, retoque_dias_obligatorio)")
+      .select("id, inicio, cliente_id, cliente:clientes(id, nombre, whatsapp, no_marketing), servicio:servicios(nombre, retoque_dias_obligatorio)")
       .gte("inicio", desdeISO)
       .lt("inicio", hastaISO)
       .eq("estado", "completada");
@@ -111,6 +111,7 @@ export async function GET(req: Request) {
       const cliente = Array.isArray(c.cliente) ? c.cliente[0] : c.cliente;
       const servicio = Array.isArray(c.servicio) ? c.servicio[0] : c.servicio;
       if (!servicio?.retoque_dias_obligatorio) { stats.retoque_60d.skipped++; continue; }
+      if (cliente?.no_marketing) { stats.retoque_60d.skipped++; continue; }
       const wa = toE164(cliente?.whatsapp);
       if (!wa) { stats.retoque_60d.skipped++; continue; }
 
@@ -158,7 +159,7 @@ export async function GET(req: Request) {
 
     const { data: candidatas, error } = await sb
       .from("citas")
-      .select("id, inicio, cliente_id, cliente:clientes(id, nombre, whatsapp), servicio:servicios(nombre, retoque_anual_dias)")
+      .select("id, inicio, cliente_id, cliente:clientes(id, nombre, whatsapp, no_marketing), servicio:servicios(nombre, retoque_anual_dias)")
       .gte("inicio", desdeISO)
       .lt("inicio", hastaISO)
       .eq("estado", "completada");
@@ -168,6 +169,7 @@ export async function GET(req: Request) {
       const cliente = Array.isArray(c.cliente) ? c.cliente[0] : c.cliente;
       const servicio = Array.isArray(c.servicio) ? c.servicio[0] : c.servicio;
       if (!servicio?.retoque_anual_dias) { stats.retoque_anual.skipped++; continue; }
+      if (cliente?.no_marketing) { stats.retoque_anual.skipped++; continue; }
       const wa = toE164(cliente?.whatsapp);
       if (!wa) { stats.retoque_anual.skipped++; continue; }
 
@@ -199,6 +201,7 @@ export async function GET(req: Request) {
       .from("clientes")
       .select("id, nombre, whatsapp, fecha_nacimiento")
       .eq("archivada", false)
+      .eq("no_marketing", false)
       .not("fecha_nacimiento", "is", null);
     if (error) throw error;
 

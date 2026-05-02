@@ -15,11 +15,12 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const {
-    nombre, tipo, template_id, contenido, canal, destinatarios,
+    nombre, tipo, template_id, template_meta, contenido, canal, destinatarios,
   } = body as {
     nombre: string;
     tipo: string;
     template_id?: string;
+    template_meta?: string | null; // friendly_name de la template Meta-aprobada
     contenido?: string;
     canal: "whatsapp" | "email";
     destinatarios: Destinatario[];
@@ -30,12 +31,35 @@ export async function POST(req: Request) {
   // Resolver template
   let cuerpo = contenido ?? "";
   let asunto: string | null = null;
-  let templateName: string | null = null;
+  let templateName: string | null = template_meta ?? null;
   if (template_id) {
     const { data: t } = await sb.from("email_templates").select("cuerpo_texto, asunto, nombre").eq("id", template_id).single();
-    if (t) { cuerpo = t.cuerpo_texto; asunto = t.asunto; templateName = t.nombre; }
+    if (t) { cuerpo = t.cuerpo_texto; asunto = t.asunto; templateName = templateName ?? t.nombre; }
   }
-  if (!cuerpo.trim()) return NextResponse.json({ error: "Sin contenido" }, { status: 400 });
+  if (!cuerpo.trim() && !template_meta) {
+    return NextResponse.json({ error: "Sin contenido" }, { status: 400 });
+  }
+
+  // Si usa template Meta-aprobada, resolvemos el Content SID (HX...) desde envs.
+  // Mapping nombre → env var. NO hardcodeamos los SIDs aqui para que cuando
+  // Meta apruebe nuevas versiones, solo se actualiza la env var.
+  const TEMPLATE_SID_ENV: Record<string, string> = {
+    reactivacion_dormida: "TWILIO_TEMPLATE_REACTIVACION_DORMIDA",
+    aviso_retoque_60d: "TWILIO_TEMPLATE_AVISO_RETOQUE_60D",
+    aviso_retoque_anual: "TWILIO_TEMPLATE_AVISO_RETOQUE_ANUAL",
+    cumpleanos_cupon: "TWILIO_TEMPLATE_CUMPLEANOS_CUPON",
+    recordatorio_cita_24h: "TWILIO_TEMPLATE_RECORDATORIO_CITA_24H",
+    recordatorio_cita_2h: "TWILIO_TEMPLATE_RECORDATORIO_CITA_2H",
+    confirmacion_cita_link_pago: "TWILIO_TEMPLATE_CONFIRMACION_CITA_LINK_PAGO",
+    pedir_resena_google: "TWILIO_TEMPLATE_PEDIR_RESENA_GOOGLE",
+  };
+  const templateSid = template_meta ? process.env[TEMPLATE_SID_ENV[template_meta]] ?? null : null;
+  if (template_meta && !templateSid) {
+    return NextResponse.json(
+      { error: `Template '${template_meta}' no configurada en envs (${TEMPLATE_SID_ENV[template_meta]})` },
+      { status: 500 }
+    );
+  }
 
   // 1. Crear la campaña
   const { data: camp, error: campErr } = await sb.from("campanias").insert({
@@ -51,8 +75,21 @@ export async function POST(req: Request) {
 
   if (campErr || !camp) return NextResponse.json({ error: campErr?.message || "Error creando campaña" }, { status: 500 });
 
-  // 2. Enviar uno por uno
-  const filas = destinatarios.filter((d) => canal === "email" || d.whatsapp);
+  // 2. Filtrar opt-out de marketing — clientes con no_marketing=true se
+  //    excluyen siempre, sin importar canal.
+  const idsAll = destinatarios.map((d) => d.id);
+  const { data: optOuts } = await sb
+    .from("clientes")
+    .select("id")
+    .in("id", idsAll)
+    .eq("no_marketing", true);
+  const optOutSet = new Set((optOuts ?? []).map((c) => c.id));
+  const optOutCount = optOutSet.size;
+
+  // 3. Filtrar destinatarios validos (canal + opt-out)
+  const filas = destinatarios.filter(
+    (d) => (canal === "email" || d.whatsapp) && !optOutSet.has(d.id)
+  );
 
   // Email setup
   const resendKey = process.env.RESEND_API_KEY;
@@ -82,17 +119,31 @@ export async function POST(req: Request) {
     try {
       if (canal === "whatsapp") {
         if (!d.whatsapp) continue;
-        const result = await sendWhatsApp(sb, {
-          to: d.whatsapp,
-          body: personalizado,
-          clienteId: d.id,
-          campaniaId: camp.id,
-          templateName: templateName ?? nombre,
-        });
+        // Si hay templateSid (Meta-aprobada), usarlo. Funciona fuera de
+        // ventana 24h. Si no, body libre (solo ventana activa).
+        const sendArgs = templateSid
+          ? {
+              to: d.whatsapp,
+              templateSid,
+              templateVars: vars,
+              templateName: templateName ?? nombre,
+              clienteId: d.id,
+              campaniaId: camp.id,
+            }
+          : {
+              to: d.whatsapp,
+              body: personalizado,
+              clienteId: d.id,
+              campaniaId: camp.id,
+              templateName: templateName ?? nombre,
+            };
+        const result = await sendWhatsApp(sb, sendArgs);
         if (result.ok) inserted++;
         else failed++;
-        // throttle defensivo: 50 mensajes/min máx (1.2s entre cada uno)
-        await new Promise((r) => setTimeout(r, 1200));
+        // Throttle conservador: 6s entre mensajes = 10/min = 600/hora.
+        // Twilio recomienda <100/min para cuentas nuevas; vamos super
+        // por debajo para evitar ratelimit + dar tiempo a status callbacks.
+        await new Promise((r) => setTimeout(r, 6000));
       } else if (canal === "email") {
         const email = emailMap.get(d.id);
         if (!email || !resend) continue;
@@ -145,6 +196,8 @@ export async function POST(req: Request) {
     campania_id: camp.id,
     enviados: inserted,
     fallidos: failed,
+    opt_outs_excluidos: optOutCount,
+    usa_template_meta: !!templateSid,
     modo: modoReal ? "real" : "simulado",
   });
 }

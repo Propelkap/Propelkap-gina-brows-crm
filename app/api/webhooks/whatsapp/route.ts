@@ -74,6 +74,24 @@ export async function POST(req: Request) {
     estado_entrega: "delivered",
   });
 
+  // 2.b Opt-out: si la clienta escribe STOP / BAJA / NO ESCRIBAN / NO MARKETING /
+  //     UNSUBSCRIBE, marca no_marketing=true y NO le respondemos con bot.
+  //     El cron de campañas la excluye automaticamente.
+  const optOutRegex = /^\s*(stop|baja|alto|cancela|no\s+escrib(an|en|as)|no\s+marketing|unsubscribe|darme?\s+de\s+baja)\b/i;
+  if (body && optOutRegex.test(body)) {
+    await sb.from("clientes").update({
+      no_marketing: true,
+      no_marketing_at: new Date().toISOString(),
+      no_marketing_motivo: `Auto-opt-out via WhatsApp: "${body.slice(0, 200)}"`,
+    }).eq("id", cliente.id);
+    console.log(`[opt-out] cliente ${cliente.id} (${phone}) marcado no_marketing por: ${body}`);
+    // Confirmacion suave dentro de la ventana 24h (que recien se abrio)
+    return new NextResponse(
+      `<Response><Message>Listo, te quitamos de los avisos automáticos. Si quieres volver a recibir promociones, solo escríbenos 🌿</Message></Response>`,
+      { status: 200, headers: { "Content-Type": "text/xml" } }
+    );
+  }
+
   // 3. Si bot pausado para esta clienta, no responder
   if (cliente.bot_pausado) {
     return new NextResponse("<Response/>", { status: 200, headers: { "Content-Type": "text/xml" } });

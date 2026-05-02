@@ -46,6 +46,14 @@ const TABS = [
   { id: "cross-sell", label: "Cross-sell", icon: Sparkles, accent: "primary" },
 ];
 
+type Segmento = {
+  segmento: string;
+  total: number;
+  elegibles: number;
+  elegibles_con_wa: number;
+  dias_promedio: number | null;
+};
+
 export default function RetencionClient({
   tab,
   dormidas,
@@ -53,6 +61,7 @@ export default function RetencionClient({
   retoquesAnuales,
   cumples,
   crossSell,
+  segmentos = [],
 }: {
   tab: string;
   dormidas: Cliente[];
@@ -60,6 +69,7 @@ export default function RetencionClient({
   retoquesAnuales: Cliente[];
   cumples: Cliente[];
   crossSell: Cliente[];
+  segmentos?: Segmento[];
 }) {
   const [activeTab, setActiveTab] = useState(tab || "dormidas");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -114,6 +124,44 @@ export default function RetencionClient({
         <p className="eyebrow">Retención + reactivación</p>
         <h1 className="text-3xl mt-1">Tu base, lista para activarse</h1>
       </header>
+
+      {/* Dashboard de segmentos de cartera (caliente / tibia / fría / dormida) */}
+      {segmentos.length > 0 && (
+        <section className="mb-6">
+          <p className="eyebrow !text-[var(--primary-dark)] mb-2">Cartera por segmento</p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            {segmentos
+              .filter((s) => s.segmento !== "archivada")
+              .map((s) => {
+                const labels: Record<string, { titulo: string; sub: string; emoji: string; color: string }> = {
+                  caliente: { titulo: "Caliente", sub: "Cita reciente o futura", emoji: "🔥", color: "var(--destructive)" },
+                  reciente_30_60: { titulo: "Reciente", sub: "30-60 días", emoji: "✨", color: "var(--sage-deep)" },
+                  tibia_60_180: { titulo: "Tibia", sub: "60-180 días", emoji: "☕", color: "var(--warning)" },
+                  fria_180_365: { titulo: "Fría", sub: "180-365 días", emoji: "❄️", color: "var(--primary-dark)" },
+                  dormida_365_plus: { titulo: "Dormida", sub: "365+ días", emoji: "💤", color: "var(--muted-foreground)" },
+                };
+                const meta = labels[s.segmento] ?? { titulo: s.segmento, sub: "", emoji: "·", color: "var(--muted-foreground)" };
+                return (
+                  <div
+                    key={s.segmento}
+                    className="card text-center"
+                    style={{ borderTop: `3px solid ${meta.color}` }}
+                  >
+                    <div className="text-xl mb-1">{meta.emoji}</div>
+                    <div className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] font-medium">
+                      {meta.titulo}
+                    </div>
+                    <div className="text-[10px] text-[var(--muted-foreground)] mb-1">{meta.sub}</div>
+                    <div className="text-2xl font-bold text-[var(--foreground)]">{s.total}</div>
+                    <div className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
+                      {s.elegibles_con_wa} con WhatsApp
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </section>
+      )}
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">

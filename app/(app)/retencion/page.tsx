@@ -9,12 +9,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
   const { tab = "dormidas" } = await searchParams;
   const supabase = await createClient();
 
-  const [dormidasRes, ret60Res, retAnualRes, cumplesRes, crossRes] = await Promise.all([
+  const [dormidasRes, ret60Res, retAnualRes, cumplesRes, crossRes, segmentosRes] = await Promise.all([
     supabase.from("v_clientas_dormidas").select("*"),
     supabase.from("v_retoques_60d_pendientes").select("*"),
     supabase.from("v_retoques_anuales_pendientes").select("*"),
     supabase.from("v_cumpleanos_proximos").select("*"),
     supabase.from("v_cross_sell_sugerido").select("*"),
+    supabase.from("v_cartera_segmentos_resumen").select("*"),
   ]);
 
   return (
@@ -25,6 +26,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       retoquesAnuales={retAnualRes.data ?? []}
       cumples={cumplesRes.data ?? []}
       crossSell={crossRes.data ?? []}
+      segmentos={segmentosRes.data ?? []}
     />
   );
 }

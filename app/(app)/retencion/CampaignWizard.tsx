@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Send, Sparkles, Check, AlertCircle, ChevronDown } from "lucide-react";
+import { X, Send, Sparkles, Check, AlertCircle, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 const TIPO_DEFAULT_COPY: Record<string, string> = {
-  dormidas: "Hello, hello {{nombre}} 🌿 Te extrañamos por aquí en Gina Brows. Quería invitarte con un detallito especial: tu próxima cita la pasas con diseño de ceja gratis 💜 ¿Cuándo te apartamos espacio?",
-  "retoques-60d": "Hello, hello {{nombre}} 🌿 Pasaron casi 60 días desde tu microblading. Es momento del retoque para que tus cejitas queden hermosas y duren más. ¿Te aparto cita esta semana?",
-  "retoques-anuales": "Hello, hello {{nombre}} 🌿 Ya cumplió un año tu microblading. Es momento del retoque anual para mantener tus cejitas en su mejor versión. Si lo agendas este mes, se mantiene el precio especial. ¿Te aparto?",
-  cumples: "Hello, hello {{nombre}} 🎂 ¡Feliz cumpleaños! De parte de todo Gina Brows te regalamos un diseño de ceja gratis para que estrenes el día. Válido los próximos 30 días. ✨",
+  dormidas: "Hello, hello {{nombre}} 🌿 Te extrañamos por aquí en Gina Brows. Quería invitarte con un detallito: tu próxima cita la pasas con diseño de ceja gratis 💜 ¿Cuándo te apartamos espacio?",
+  "retoques-60d": "Hello, hello {{nombre}} 🌿 Pasaron casi 60 días desde tu microblading. Es momento del retoque para que tus cejitas duren más y queden hermosas. ¿Te aparto cita esta semana?",
+  "retoques-anuales": "Hello, hello {{nombre}} 🌿 Ya cumplió un año tu microblading. Es momento del retoque anual para mantener tus cejitas en su mejor versión. Si lo agendas este mes, mantienes el precio especial. ¿Te aparto?",
+  cumples: "Hello, hello {{nombre}} 🎂 ¡Feliz cumpleaños! De parte de Gina Brows te regalamos un diseño de ceja gratis para estrenar el día. Válido los próximos 30 días. ✨",
   "cross-sell": "Hello, hello {{nombre}} 🌿 Ya pasaron 90 días desde tu microblading. Para mantener tu piel del rostro lista, te recomiendo el Hollywood Peeling — tengo paquete de 3 sesiones a precio especial. ¿Te interesa?",
 };
 
@@ -27,6 +27,20 @@ const TIPO_TO_CAMPANIA: Record<string, string> = {
   "retoques-anuales": "retoque_anual",
   cumples: "cumpleanos",
   "cross-sell": "cross_sell",
+};
+
+/**
+ * Mapeo tipo → friendly_name de la template aprobada por Meta.
+ * Si el tipo tiene una template aprobada, el wizard la usa via templateSid
+ * (NO acepta editar el copy porque Meta valida el texto exacto). Para
+ * tipos sin template (cross-sell, custom), cae a body libre que solo
+ * funciona dentro de ventana 24h activa.
+ */
+const TIPO_TO_TEMPLATE_NAME: Record<string, string> = {
+  dormidas: "reactivacion_dormida",
+  "retoques-60d": "aviso_retoque_60d",
+  "retoques-anuales": "aviso_retoque_anual",
+  cumples: "cumpleanos_cupon",
 };
 
 type Template = { id: string; nombre: string; cuerpo_texto: string; emoji: string | null; tipo_campania: string | null };
@@ -71,6 +85,12 @@ export default function CampaignWizard({
   const previewMsg = copy.replace(/\{\{nombre\}\}/g, previewName);
   const validRecipients = recipients.filter((r) => r.whatsapp);
 
+  // Si el tipo de campaña tiene template aprobada por Meta, la usamos
+  // directo (no aceptamos editar copy). Esto permite mandar a cartera
+  // tibia/fría fuera de la ventana 24h.
+  const templateName = TIPO_TO_TEMPLATE_NAME[tipo];
+  const usaTemplate = !!templateName;
+
   function selectTemplate(id: string) {
     setSelectedTemplate(id);
     if (id === "custom") return;
@@ -88,7 +108,10 @@ export default function CampaignWizard({
         nombre: `${TIPO_NAMES[tipo]} · ${new Date().toLocaleDateString("es-MX")}`,
         tipo: TIPO_TO_CAMPANIA[tipo] || "broadcast_libre",
         template_id: selectedTemplate !== "custom" ? selectedTemplate : null,
-        contenido: copy,
+        // template_meta: si esta seteado, el endpoint usara templateSid
+        // (Meta-aprobada) y NO acepta texto libre. Critico para tibia/fria.
+        template_meta: templateName ?? null,
+        contenido: copy, // fallback si no hay template
         canal: "whatsapp",
         destinatarios: validRecipients,
       }),
@@ -130,34 +153,80 @@ export default function CampaignWizard({
                 </div>
               </div>
 
-              {/* Selector de template */}
-              <label className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] font-medium mb-2 block">
-                Template
-              </label>
-              <select
-                value={selectedTemplate}
-                onChange={(e) => selectTemplate(e.target.value)}
-                className="mb-3"
-              >
-                <option value="custom">✏️ Escribir desde cero</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.emoji} {t.nombre}
-                  </option>
-                ))}
-              </select>
+              {/* Banner si la campaña usa template Meta-aprobada (cartera tibia/fría) */}
+              {usaTemplate && (
+                <div className="bg-[var(--secondary)]/15 border border-[var(--primary)]/30 rounded-xl p-4 mb-4 flex items-start gap-3">
+                  <ShieldCheck className="w-4 h-4 text-[var(--primary-dark)] mt-0.5 shrink-0" />
+                  <div className="text-xs">
+                    <p className="font-semibold text-[var(--primary-dark)] mb-1">
+                      Template aprobada por Meta: <code>{templateName}</code>
+                    </p>
+                    <p className="text-[var(--muted-foreground)]">
+                      Esta campaña funciona para clientas <strong>fuera de la ventana de 24h</strong>
+                      (cartera tibia, fría, dormida). El texto exacto fue aprobado por Meta y no se
+                      puede editar — solo se personaliza con su nombre.
+                    </p>
+                  </div>
+                </div>
+              )}
 
-              <label className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] font-medium mb-2 block">
-                Mensaje (usa <code className="bg-[var(--muted)] px-1 rounded">{`{{nombre}}`}</code>)
-              </label>
-              <textarea
-                value={copy}
-                onChange={(e) => setCopy(e.target.value)}
-                className="!min-h-[140px]"
-              />
-              <p className="text-xs text-[var(--muted-foreground)] mt-2">
-                {copy.length} caracteres
-              </p>
+              {/* Aviso si NO hay template (texto libre) */}
+              {!usaTemplate && (
+                <div className="bg-[hsl(35_90%_55%_/_0.08)] border border-[var(--warning)] rounded-xl p-4 mb-4 flex items-start gap-3">
+                  <AlertCircle className="w-4 h-4 text-[var(--warning)] mt-0.5 shrink-0" />
+                  <div className="text-xs">
+                    <p className="font-semibold mb-1">Modo texto libre</p>
+                    <p className="text-[var(--muted-foreground)]">
+                      Solo funciona si la clienta ha escrito al WhatsApp del estudio en las
+                      últimas 24h (ventana activa). No usar para reactivación masiva de
+                      cartera tibia/fría — Twilio rechazaría con error 63016.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Si hay template Meta-aprobada, NO mostrar selector ni editor.
+                   El copy es el de la template y no se puede tocar. */}
+              {usaTemplate ? (
+                <>
+                  <label className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] font-medium mb-2 block">
+                    Mensaje aprobado por Meta (no editable)
+                  </label>
+                  <div className="bg-[var(--card)] rounded-xl p-4 border border-[var(--border)] text-sm whitespace-pre-wrap leading-relaxed">
+                    {copy.replace(/\{\{nombre\}\}/g, "[Nombre de la clienta]")}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] font-medium mb-2 block">
+                    Template
+                  </label>
+                  <select
+                    value={selectedTemplate}
+                    onChange={(e) => selectTemplate(e.target.value)}
+                    className="mb-3"
+                  >
+                    <option value="custom">✏️ Escribir desde cero</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.emoji} {t.nombre}
+                      </option>
+                    ))}
+                  </select>
+
+                  <label className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] font-medium mb-2 block">
+                    Mensaje (usa <code className="bg-[var(--muted)] px-1 rounded">{`{{nombre}}`}</code>)
+                  </label>
+                  <textarea
+                    value={copy}
+                    onChange={(e) => setCopy(e.target.value)}
+                    className="!min-h-[140px]"
+                  />
+                  <p className="text-xs text-[var(--muted-foreground)] mt-2">
+                    {copy.length} caracteres
+                  </p>
+                </>
+              )}
 
               <button
                 onClick={() => setStep("preview")}

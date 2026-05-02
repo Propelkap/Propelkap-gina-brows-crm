@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import FeedbackBot from "./FeedbackBot";
 import ServiciosEditor from "./ServiciosEditor";
 import PushNotificacionesToggle from "./PushNotificacionesToggle";
+import TestTemplateWA from "./TestTemplateWA";
 
 type CalendarToken = { created_at: string; expires_at: string; scope: string | null } | null | undefined;
 
@@ -113,6 +114,10 @@ export default function ConfiguracionClient({
 
       <Section title="Notificaciones push">
         <PushNotificacionesToggle />
+      </Section>
+
+      <Section title="Test envío WhatsApp (1 a 1)">
+        <TestTemplateWA />
       </Section>
 
       <Section title="Aprendizaje del bot">

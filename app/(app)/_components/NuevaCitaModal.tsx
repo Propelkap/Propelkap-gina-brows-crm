@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Search, Calendar, User, Sparkles, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { localYmd, localHm, buildLocalDate, parseFechaMX, fmtFechaMX, generarHorarios } from "@/lib/date-helpers";
+import { localYmd, localHm, buildLocalDate, generarHorarios } from "@/lib/date-helpers";
+import DatePickerMX from "./DatePickerMX";
 
 const HORARIOS = generarHorarios(8, 22, 15); // 8:00..22:00 cada 15min
 
@@ -26,9 +27,6 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
   const [servicio, setServicio] = useState<Servicio | null>(null);
   const [fecha, setFecha] = useState(() => fechaInicial ? localYmd(fechaInicial) : "");
   const [hora, setHora] = useState(() => fechaInicial ? localHm(fechaInicial) : "");
-  // Input visible para fecha en formato MX. Mantenemos `fecha` como YYYY-MM-DD
-  // internamente. Se sincronizan cada vez que el usuario tipea o pega.
-  const [fechaInput, setFechaInput] = useState(() => fechaInicial ? fmtFechaMX(localYmd(fechaInicial)) : "");
   const [precio, setPrecio] = useState<string>("");
   const [anticipo, setAnticipo] = useState<string>("");
   const [notas, setNotas] = useState("");
@@ -50,7 +48,6 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
     if (fechaInicial) {
       const ymd = localYmd(fechaInicial);
       setFecha(ymd);
-      setFechaInput(fmtFechaMX(ymd));
       // Aproximar la hora pre-elegida al bloque de 15 min mas cercano
       const hh = fechaInicial.getHours();
       const mm = Math.round(fechaInicial.getMinutes() / 15) * 15;
@@ -58,14 +55,6 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
       setHora(HORARIOS.includes(horaSlot) ? horaSlot : localHm(fechaInicial));
     }
   }, [fechaInicial]);
-
-  // Re-parse fecha cuando el usuario tipea
-  function onFechaInputChange(raw: string) {
-    setFechaInput(raw);
-    const parsed = parseFechaMX(raw);
-    if (parsed) setFecha(parsed);
-    else setFecha("");
-  }
 
   // Auto-limpiar error de validacion cuando el usuario edita cualquier campo
   // (evita que el mensaje "Falta: X" quede fijo despues de corregirlo).
@@ -244,26 +233,17 @@ export default function NuevaCitaModal({ onClose, clientePreseleccionado, fechaI
             )}
           </div>
 
-          {/* Fecha y hora — controles custom para que se vean igual en
-               Safari, Chrome, iOS y Android (los <input type="date"/"time">
-               nativos tienen formatos distintos por navegador y rompen iOS). */}
+          {/* Fecha y hora — calendario interactivo + select de hora.
+               DatePickerMX funciona igual en Safari/Chrome/Edge desktop y mobile. */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] font-medium mb-2 block flex items-center gap-2">
                 <Calendar className="w-3 h-3" /> Fecha
               </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={fechaInput}
-                onChange={(e) => onFechaInputChange(e.target.value)}
-                placeholder="DD/MM/AAAA"
-                pattern="\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}"
-                autoComplete="off"
+              <DatePickerMX
+                value={fecha}
+                onChange={setFecha}
               />
-              {fechaInput && !fecha && (
-                <p className="text-xs text-[var(--destructive)] mt-1">Formato: DD/MM/AAAA (ej. 29/04/2026)</p>
-              )}
             </div>
             <div>
               <label className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] font-medium mb-2 block">Hora</label>

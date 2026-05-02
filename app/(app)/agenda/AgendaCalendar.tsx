@@ -8,7 +8,8 @@ import NuevaCitaModal from "../_components/NuevaCitaModal";
 import GenerarConsentimientoBtn from "../_components/GenerarConsentimientoBtn";
 import CheckoutCita from "../_components/CheckoutCita";
 import CobrarCita from "../_components/CobrarCita";
-import { localYmd as localYmdShared, buildLocalDate, parseFechaMX, fmtFechaMX, generarHorarios } from "@/lib/date-helpers";
+import { localYmd as localYmdShared, buildLocalDate, generarHorarios } from "@/lib/date-helpers";
+import DatePickerMX from "../_components/DatePickerMX";
 
 const HORARIOS = generarHorarios(8, 22, 15);
 
@@ -452,7 +453,6 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
   const _horaInicial = `${String(_inicioLocal.getHours()).padStart(2, "0")}:${String(_inicioLocal.getMinutes()).padStart(2, "0")}`;
   const [editForm, setEditForm] = useState({
     fecha: localYmd(_inicioLocal),
-    fechaInput: fmtFechaMX(localYmd(_inicioLocal)),
     hora: _horaInicial,
     precio_mxn: String(cita.precio_mxn),
     estado: cita.estado,
@@ -563,17 +563,9 @@ function CitaDetalle({ cita, onClose }: { cita: Cita; onClose: () => void }) {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] font-medium">Fecha</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={editForm.fechaInput}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      const parsed = parseFechaMX(raw);
-                      setEditForm({ ...editForm, fechaInput: raw, fecha: parsed ?? "" });
-                    }}
-                    placeholder="DD/MM/AAAA"
-                    autoComplete="off"
+                  <DatePickerMX
+                    value={editForm.fecha}
+                    onChange={(ymd) => setEditForm({ ...editForm, fecha: ymd })}
                   />
                 </div>
                 <div>

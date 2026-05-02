@@ -122,6 +122,18 @@ const TEMPLATES = [
     body: "Hello, hello {{1}} 🌿 ¿Te gustaron tus cejitas? Si te animas a dejarme una reseña en Google, me ayudas muchísimo: {{2}} 💜",
     variables: { "1": "María", "2": "https://g.page/r/abc/review" },
   },
+  {
+    friendly_name: "presentacion_gina_brows",
+    category: "MARKETING",
+    language: "es_MX",
+    // Primer mensaje a cartera fria/dormida que NO tiene a Gina en
+    // contactos. Mientras Meta no aprobe Verified Business (✓ verde),
+    // WhatsApp muestra el numero crudo en la lista de chats. Esta
+    // template establece identidad desde la primera linea para mejorar
+    // tasa de apertura/respuesta.
+    body: "Hello, hello {{1}} 🌿 Soy Gina, de Gina Brows Microblading Artist 💜 Te escribo desde mi nuevo WhatsApp Business para platicarte de algo especial.\n\nSi quieres ver mi trabajo más reciente, soy @ginat.brows en Instagram: https://www.instagram.com/ginat.brows",
+    variables: { "1": "María" },
+  },
 ];
 
 // =========================================================================

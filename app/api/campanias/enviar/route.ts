@@ -52,6 +52,7 @@ export async function POST(req: Request) {
     recordatorio_cita_2h: "TWILIO_TEMPLATE_RECORDATORIO_CITA_2H",
     confirmacion_cita_link_pago: "TWILIO_TEMPLATE_CONFIRMACION_CITA_LINK_PAGO",
     confirmacion_cita_valoracion: "TWILIO_TEMPLATE_CONFIRMACION_CITA_VALORACION",
+    presentacion_gina_brows: "TWILIO_TEMPLATE_PRESENTACION_GINA_BROWS",
     pedir_resena_google: "TWILIO_TEMPLATE_PEDIR_RESENA_GOOGLE",
   };
   const templateSid = template_meta ? process.env[TEMPLATE_SID_ENV[template_meta]] ?? null : null;

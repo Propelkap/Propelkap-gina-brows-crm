@@ -72,8 +72,10 @@ const TEMPLATES = [
     friendly_name: "confirmacion_cita_link_pago",
     category: "UTILITY",
     language: "es_MX",
-    body: "Hello, hello {{1}} 🌿 Para apartar tu cita de {{2}} el {{3}}, necesito el anticipo del 50% (${{4}} MXN). Aquí el link de pago seguro: {{5}}\n\nEn cuanto pagues, queda apartada y te llega confirmación 💜",
-    variables: { "1": "María", "2": "microblading", "3": "lunes 5 de mayo", "4": "1500", "5": "https://pago.gina/abc123" },
+    // Copy actualizado 2026-05-02: regla real es anticipo fijo de $500
+    // (excepto valoración), no 50%. Removido "del 50%" para flexibilidad.
+    body: "Hello, hello {{1}} 🌿 Para apartar tu cita de {{2}} el {{3}}, necesito un anticipo de ${{4}} MXN. Aquí el link de pago seguro: {{5}}\n\nEn cuanto pagues, queda apartada y te llega confirmación 💜",
+    variables: { "1": "María", "2": "microblading", "3": "lunes 5 de mayo", "4": "500", "5": "https://pago.gina/abc123" },
   },
   {
     friendly_name: "aviso_retoque_60d",

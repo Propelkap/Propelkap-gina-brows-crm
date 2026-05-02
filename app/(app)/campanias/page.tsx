@@ -56,7 +56,7 @@ export default async function Page() {
       ) : (
         <div className="space-y-3">
           {campanias?.map((c) => (
-            <div key={c.id} className="card">
+            <Link key={c.id} href={`/campanias/${c.id}`} className="card hover:border-[var(--primary)]/40 transition-colors block">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-[var(--secondary)]/40 flex items-center justify-center text-lg shrink-0">
@@ -91,7 +91,7 @@ export default async function Page() {
                 <Stat label="Leídos" value={c.total_leidos ?? 0} dim />
                 <Stat label="Conversiones" value={c.total_conversiones ?? 0} dim />
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

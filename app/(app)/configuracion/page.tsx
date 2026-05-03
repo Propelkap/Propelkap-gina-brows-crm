@@ -22,6 +22,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       servicios={servRes.data ?? []}
       calendarToken={tokenRes.data}
       calendarFlash={calendar}
+      userEmail={user?.email ?? null}
     />
   );
 }

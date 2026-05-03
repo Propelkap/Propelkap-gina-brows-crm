@@ -8,6 +8,7 @@ import FeedbackBot from "./FeedbackBot";
 import ServiciosEditor from "./ServiciosEditor";
 import PushNotificacionesToggle from "./PushNotificacionesToggle";
 import TestTemplateWA from "./TestTemplateWA";
+import CambiarPassword from "./CambiarPassword";
 
 type CalendarToken = { created_at: string; expires_at: string; scope: string | null } | null | undefined;
 
@@ -17,12 +18,13 @@ const fmtMxn = (n: number | null) =>
     : "—";
 
 export default function ConfiguracionClient({
-  config, servicios, calendarToken, calendarFlash,
+  config, servicios, calendarToken, calendarFlash, userEmail,
 }: {
   config: any;
   servicios: any[];
   calendarToken?: CalendarToken;
   calendarFlash?: string;
+  userEmail?: string | null;
 }) {
   const router = useRouter();
   const [data, setData] = useState({
@@ -105,6 +107,16 @@ export default function ConfiguracionClient({
 
       <Section title="Integraciones">
         <CalendarIntegration token={calendarToken} flash={calendarFlash} router={router} />
+      </Section>
+
+      <Section title="Seguridad · cambiar contraseña">
+        {userEmail ? (
+          <CambiarPassword email={userEmail} />
+        ) : (
+          <p className="text-xs text-[var(--muted-foreground)]">
+            No estás logueada. Recarga la página.
+          </p>
+        )}
       </Section>
 
       <Section title="Reglas operativas">

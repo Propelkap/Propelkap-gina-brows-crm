@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Calendar, Users, MessageCircle, BarChart3, Sparkles, Settings, Heart, Send, Menu, X, Megaphone } from "lucide-react";
+import { Calendar, Users, MessageCircle, BarChart3, Sparkles, Settings, Heart, Send, Menu, X, Megaphone, Globe } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 
 const ITEMS = [
@@ -13,6 +13,7 @@ const ITEMS = [
   { href: "/retencion", label: "Retención", icon: Heart },
   { href: "/marketing", label: "Marketing", icon: Megaphone },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { href: "/landing", label: "Mi Landing", icon: Globe },
   { href: "/reportes", label: "Reportes", icon: BarChart3 },
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ];

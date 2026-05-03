@@ -6,6 +6,15 @@ import { Loader2, Rocket } from "lucide-react";
 type Landing = any;
 type Section = any;
 
+// Placeholder dinámico: usa el branding que cada cliente setea en sus ENVs.
+// Si NEXT_PUBLIC_BRAND_LABEL_TOP="PropelKap × Gina" y _BOTTOM="Microblading Artist"
+// → placeholder muestra "Gina · Microblading Artist"
+// Si no hay ENVs, fallback al de Haydeé (template default).
+const BRAND_TOP = process.env.NEXT_PUBLIC_BRAND_LABEL_TOP ?? "PropelKap × Haydeé";
+const BRAND_BOTTOM = process.env.NEXT_PUBLIC_BRAND_LABEL_BOTTOM ?? "Asesora Pensiones";
+const NAME_PART = BRAND_TOP.replace(/^PropelKap\s*[×x]\s*/i, "").trim();
+const PLACEHOLDER_BRAND = `${NAME_PART} · ${BRAND_BOTTOM}`;
+
 export default function BootstrapPanel({
   onCreated,
 }: {
@@ -74,7 +83,7 @@ export default function BootstrapPanel({
             type="text"
             value={brandName}
             onChange={(e) => setBrandName(e.target.value)}
-            placeholder="Haydeé Pérez · Asesora Pensiones"
+            placeholder={PLACEHOLDER_BRAND}
             className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--background)]"
           />
         </div>

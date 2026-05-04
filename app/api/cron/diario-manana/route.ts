@@ -63,6 +63,8 @@ export async function GET(req: Request) {
       const servicio = Array.isArray(c.servicio) ? c.servicio[0] : c.servicio;
       const wa = toE164(cliente?.whatsapp);
       if (!wa) { stats.recordatorios_24h.skipped++; continue; }
+      const primerNombre = (cliente?.nombre ?? "").trim().split(/\s+/)[0];
+      if (!primerNombre) { stats.recordatorios_24h.skipped++; continue; }
 
       if (await yaSeMandoTemplate(sb, "recordatorio_cita_24h", { citaId: c.id })) {
         stats.recordatorios_24h.skipped++;
@@ -73,7 +75,7 @@ export async function GET(req: Request) {
         to: wa,
         templateSid: process.env.TWILIO_TEMPLATE_RECORDATORIO_CITA_24H,
         templateVars: {
-          "1": cliente?.nombre ?? "",
+          "1": primerNombre,
           "2": fmtHoraMX(c.inicio),
           "3": servicio?.nombre ?? "tu cita",
         },
@@ -114,6 +116,8 @@ export async function GET(req: Request) {
       if (cliente?.no_marketing) { stats.retoque_60d.skipped++; continue; }
       const wa = toE164(cliente?.whatsapp);
       if (!wa) { stats.retoque_60d.skipped++; continue; }
+      const primerNombre = (cliente?.nombre ?? "").trim().split(/\s+/)[0];
+      if (!primerNombre) { stats.retoque_60d.skipped++; continue; }
 
       // Idempotencia por cliente: una vez al ciclo
       const desdeAvisoISO = addDaysYmd(hoyYmd, -90) + "T00:00:00-06:00";
@@ -137,7 +141,7 @@ export async function GET(req: Request) {
       const r = await sendWhatsApp(sb, {
         to: wa,
         templateSid: process.env.TWILIO_TEMPLATE_AVISO_RETOQUE_60D,
-        templateVars: { "1": cliente.nombre ?? "" },
+        templateVars: { "1": primerNombre },
         templateName: "aviso_retoque_60d",
         clienteId: cliente.id,
       });
@@ -172,6 +176,8 @@ export async function GET(req: Request) {
       if (cliente?.no_marketing) { stats.retoque_anual.skipped++; continue; }
       const wa = toE164(cliente?.whatsapp);
       if (!wa) { stats.retoque_anual.skipped++; continue; }
+      const primerNombre = (cliente?.nombre ?? "").trim().split(/\s+/)[0];
+      if (!primerNombre) { stats.retoque_anual.skipped++; continue; }
 
       const desdeAvisoISO = addDaysYmd(hoyYmd, -180) + "T00:00:00-06:00";
       if (await yaSeMandoTemplate(sb, "aviso_retoque_anual", { clienteId: cliente.id, desdeISO: desdeAvisoISO })) {
@@ -182,7 +188,7 @@ export async function GET(req: Request) {
       const r = await sendWhatsApp(sb, {
         to: wa,
         templateSid: process.env.TWILIO_TEMPLATE_AVISO_RETOQUE_ANUAL,
-        templateVars: { "1": cliente.nombre ?? "" },
+        templateVars: { "1": primerNombre },
         templateName: "aviso_retoque_anual",
         clienteId: cliente.id,
       });
@@ -213,6 +219,8 @@ export async function GET(req: Request) {
       if (cl.fecha_nacimiento.slice(5, 10) !== monthDay) continue;
       const wa = toE164(cl.whatsapp);
       if (!wa) { stats.cumpleanos.skipped++; continue; }
+      const primerNombre = (cl.nombre ?? "").trim().split(/\s+/)[0];
+      if (!primerNombre) { stats.cumpleanos.skipped++; continue; }
       if (await yaSeMandoTemplate(sb, "cumpleanos_cupon", { clienteId: cl.id, desdeISO: desdeAvisoISO })) {
         stats.cumpleanos.skipped++;
         continue;
@@ -221,7 +229,7 @@ export async function GET(req: Request) {
       const r = await sendWhatsApp(sb, {
         to: wa,
         templateSid: process.env.TWILIO_TEMPLATE_CUMPLEANOS_CUPON,
-        templateVars: { "1": cl.nombre ?? "" },
+        templateVars: { "1": primerNombre },
         templateName: "cumpleanos_cupon",
         clienteId: cl.id,
       });

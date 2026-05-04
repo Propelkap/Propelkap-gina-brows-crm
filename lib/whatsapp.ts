@@ -114,20 +114,25 @@ export async function sendWhatsApp(sb: SupabaseClient, opts: SendOpts): Promise<
 
     return { ok: true, twilioSid: msg.sid, estado: msg.status };
   } catch (e) {
-    const error = e as Error;
+    const error = e as any;
+    const errorCode = error?.code ? String(error.code) : null;
+    const errorMessage = error?.message ?? String(error);
     if (opts.clienteId) {
       await sb.from("comunicaciones").insert({
         cliente_id: opts.clienteId,
         canal: "whatsapp",
         direccion: "saliente",
-        cuerpo: opts.body || "",
+        cuerpo: opts.body || `[template ${opts.templateName ?? opts.templateSid ?? "?"}]`,
         template_usado: opts.templateName || null,
         campania_id: opts.campaniaId || null,
         cita_id: opts.citaId || null,
         estado_entrega: "failed",
+        error_codigo: errorCode,
+        error_mensaje: errorMessage.slice(0, 500),
+        variables: opts.templateVars ?? null,
       });
     }
-    return { ok: false, error: error.message };
+    return { ok: false, error: errorMessage };
   }
 }
 

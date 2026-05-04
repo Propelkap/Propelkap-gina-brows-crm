@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const origin =
       process.env.NEXT_PUBLIC_APP_URL ||
       new URL(req.url).origin;
-    const webhookUrl = `${origin}/api/webhooks/whatsapp`;
+    const webhookUrl = `${origin}/api/webhooks/whatsapp-evolution`;
 
     // No bloquear si el webhook falla — la conexión sigue siendo útil
     setInstanceWebhook(INSTANCE_NAME, webhookUrl).catch((e) =>

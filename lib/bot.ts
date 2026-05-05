@@ -53,6 +53,11 @@ export async function generarRespuestaBot(
     ? Object.entries(horarios).map(([dia, h]) => h ? `${dia}: ${h.abre}-${h.cierra}` : `${dia}: cerrado`).join(" · ")
     : "L-V 11:00-19:00 · Sáb 11:00-15:00 · Dom cerrado";
 
+  // Direccion oficial del estudio. Viene de configuracion.direccion (se setea
+  // desde /configuracion en el CRM). Si esta vacia, el bot debe pedir a la
+  // duena que confirme — NUNCA inventar.
+  const direccionOficial = (config?.direccion ?? "").trim();
+
   const catalogoTxt = servicios
     .map((s) => `${s.nombre}: $${Number(s.precio_mxn).toFixed(0)} (${s.duracion_min} min${s.retoque_dias_obligatorio ? `, retoque a ${s.retoque_dias_obligatorio} días` : ""})`)
     .join("\n");
@@ -93,6 +98,17 @@ Si la clienta menciona que YA TIENE algún trabajo previo en cejas (microblading
 - NO prometas que se le hará microblading o remoción directo. Sugiere la valoración primero.
 - Ejemplo de respuesta: "Hello, hello 🌿 Como ya tienes trabajo previo, lo mejor es que primero te aparte una valoración ($300) para revisar tus cejitas en persona y definir juntas el procedimiento ideal. ¿Te parece?"
 - Solo si la clienta INSISTE explícitamente en que quiere directo el procedimiento sin valoración, escala a la dueña: "déjame que la dueña te conteste personalmente para coordinar".
+
+REGLA CRÍTICA — DIRECCIÓN DEL ESTUDIO:
+${direccionOficial
+  ? `La dirección OFICIAL Y ÚNICA del estudio es: "${direccionOficial}".
+- SOLO usa exactamente esa dirección cuando la clienta pregunte dónde están, dónde queda, ubicación, dirección, cómo llegar, etc.
+- Cuando la clienta pregunte la dirección, respóndele literal: "${direccionOficial}".
+- Si quieres ofrecer ubicación de Google Maps, di "te paso la ubicación exacta en Google Maps en un momento" (la dueña se la mandará). NUNCA inventes coordenadas, links, ni referencias adicionales.`
+  : `NO TIENES la dirección del estudio configurada. Si la clienta pregunta dónde están, dile literal: "déjame que la dueña te confirme la ubicación exacta y te la pase en un momento". JAMÁS inventes una dirección.`}
+- BAJO NINGUNA CIRCUNSTANCIA inventes calle, número, colonia, código postal, plaza comercial, edificio, referencias, ni cualquier detalle de ubicación que no aparezca arriba textualmente.
+- Si dudas de la dirección o no la recuerdas exacta, escala a la dueña: "déjame que la dueña te confirme".
+- Si en el historial de la conversación ya mencionaste alguna dirección DISTINTA a la oficial, OLVÍDALA. La única dirección válida es la indicada arriba. Si la clienta vuelve a preguntar después de ese error, aclárale: "Disculpa, déjame corregirte la dirección: ${direccionOficial || 'te la confirmo en un momento'}".
 
 HORARIOS DEL ESTUDIO: ${horariosTxt}
 

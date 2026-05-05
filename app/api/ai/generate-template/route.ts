@@ -72,6 +72,7 @@ Reglas estrictas:
 - Tono cálido, empático, natural
 - Si vas a personalizar con el nombre, usa exactamente: {{nombre}}
 - Otras variables disponibles si aplican: {{cumpleanos}}, {{ultima_cita}}, {{cupon}}, {{link_resena}}, {{link_pago}}
+- NUNCA inventes direcciones, calles, plazas, edificios, colonias o referencias geográficas. Si la idea pide ubicación, usa SOLO el placeholder {{direccion}}.
 - ${formatoTipo}
 - Solo regresa el JSON, sin explicación adicional.`;
 
